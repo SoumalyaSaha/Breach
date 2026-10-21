@@ -26,6 +26,7 @@ from rich.text import Text
 # -- palette ---------------------------------------------------------------
 ACCENT = "bright_red"
 ACCENT_SOFT = "orange1"
+LETTER = "light_green"  # the BREACH wordmark itself
 WARN = "yellow"
 OK = "green"
 DIM = "dim"
@@ -46,6 +47,24 @@ STATUS_ICON = {
 
 console = Console()
 err_console = Console(stderr=True)
+
+
+def _letter_style() -> str:
+    """Style for the BREACH wordmark: a light green that survives every terminal.
+
+    Rich's 16-colour downgrade maps light greens onto cyan, so we only use the
+    exact hex colour when the terminal can actually show it; otherwise we fall
+    back to the 16-colour bright green.
+    """
+    system = getattr(console, "color_system", None)
+    system = getattr(system, "name", system)
+    if system in ("truecolor", "eight_bit"):
+        return f"bold #{LETTER_HEX}"
+    # 16-colour terminals: bright green is the closest light green.
+    return "bold bright_green"
+
+
+LETTER_HEX = "90EE90"  # CSS lightgreen
 
 
 def make_console(**kwargs: Any) -> Console:
@@ -73,8 +92,8 @@ def print_banner(con: Optional[Console] = None) -> None:
     con = con or console
     con.print(
         Panel(
-            Text(banner_text(), style=f"bold {ACCENT}"),
-            title="[bold]BREACH[/bold] — adversarial math checking",
+            Text(banner_text(), style=_letter_style()),
+            title=f"[bold {ACCENT}]BREACH[/bold {ACCENT}] — adversarial math checking",
             subtitle="[dim]try to break the proof, not confirm it[/dim]",
             border_style=ACCENT,
             expand=False,

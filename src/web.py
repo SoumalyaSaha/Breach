@@ -91,7 +91,7 @@ st.markdown(
       h1, h2, h3 { color: #d1380d; }
       .breach-banner {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-weight: 800; letter-spacing: .12em; color: #d1380d;
+        font-weight: 800; letter-spacing: .12em; color: #90ee90;
         border: 2px solid #d1380d; border-radius: 8px;
         padding: .6rem 1rem; display: inline-block; margin-bottom: .6rem;
       }
