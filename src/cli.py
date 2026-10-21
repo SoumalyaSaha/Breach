@@ -179,13 +179,14 @@ def check(
                 "Available: " + ", ".join(sorted(EXAMPLES.keys())),
             )
             raise typer.Exit(code=1)
-        theme.console.print(
-            Panel(
-                f"[bold]{ex.title}[/bold]\n\n{ex.claim}\n\n[dim]{ex.history}[/dim]",
-                border_style=theme.ACCENT_SOFT,
-                expand=False,
+        if not as_json:
+            theme.console.print(
+                Panel(
+                    f"[bold]{ex.title}[/bold]\n\n{ex.claim}\n\n[dim]{ex.history}[/dim]",
+                    border_style=theme.ACCENT_SOFT,
+                    expand=False,
+                )
             )
-        )
         with theme.status_spinner("searching for a counterexample..."):
             state = check_with_form(ex.form, ex.claim, memory=memory, timeout=max(timeout, 30))
     elif claim:
