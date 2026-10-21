@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.breach_session.json
+outputs/
+.pytest_cache/
+*.egg-info/
+.streamlit/secrets.toml
+scratch_*.py
