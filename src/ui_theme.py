@@ -98,7 +98,12 @@ def _banner_art(font: str, scale: int) -> list[str]:
 
 
 #: (font, horizontal scale) candidates, widest/nicest first.
-BANNER_STYLES = (("banner3", 2), ("doom", 2), ("big", 2), ("banner3", 1))
+BANNER_STYLES = (
+    ("slant", 1),      # the slanted, italic wordmark
+    ("smslant", 1),
+    ("banner3", 1),
+    ("big", 2),
+)
 
 
 def _pick_banner(available_width: int) -> tuple[str, list[str]]:
