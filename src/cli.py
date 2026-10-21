@@ -29,6 +29,7 @@ from rich.prompt import Prompt as RichPrompt
 from rich.table import Table
 
 from . import ui_theme as theme
+from .paths import OUTPUT_DIR, PROJECT_ROOT, SESSION_FILE as DEFAULT_SESSION_FILE
 from .argue import apply_patch, challenge_step, diagnose_failure, offer_patch
 from .citations import attach_citations
 from .engine import breach_check, check_with_form
@@ -39,7 +40,7 @@ from .memory import ProofMemory
 from .state import ProofState
 from .symbols import apply_shortcut, find_completion
 
-SESSION_FILE = os.environ.get("BREACH_SESSION_FILE", ".breach_session.json")
+SESSION_FILE = os.environ.get("BREACH_SESSION_FILE", DEFAULT_SESSION_FILE)
 WEB_PORT = int(os.environ.get("BREACH_WEB_PORT", "8501"))
 
 app = typer.Typer(

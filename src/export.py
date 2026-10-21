@@ -13,9 +13,10 @@ from typing import Any, Optional
 
 from jinja2 import Template
 
+from .paths import OUTPUT_DIR as DEFAULT_OUTPUT_DIR
 from .state import ProofState
 
-OUTPUT_DIR = os.environ.get("BREACH_OUTPUT_DIR", "outputs")
+OUTPUT_DIR = os.environ.get("BREACH_OUTPUT_DIR", DEFAULT_OUTPUT_DIR)
 
 MD_TEMPLATE = """# Breach report
 

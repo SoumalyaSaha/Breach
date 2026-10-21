@@ -28,13 +28,13 @@ from src.engine import breach_check  # noqa: E402
 from src.export import export_proof  # noqa: E402
 from src.llm_client import get_client  # noqa: E402
 from src.memory import ProofMemory  # noqa: E402
+from src.paths import SESSION_FILE as DEFAULT_SESSION  # noqa: E402
 from src.state import ProofState  # noqa: E402
 from src.symbols import apply_shortcut, find_completion  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Session file (shared with the CLI)
 # ---------------------------------------------------------------------------
-DEFAULT_SESSION = os.path.abspath(".breach_session.json")
 
 
 def _session_path_from_args() -> str:

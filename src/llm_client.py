@@ -22,6 +22,10 @@ from typing import Any, Optional
 try:  # optional dependency
     from dotenv import load_dotenv
 
+    # Look for .env next to the project root first, so the tool works from
+    # any working directory (not only from inside the project folder).
+    _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
     load_dotenv()
 except Exception:  # pragma: no cover - dotenv is optional at runtime
     pass
