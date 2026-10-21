@@ -186,6 +186,35 @@ def banner_rich() -> Text:
                     return True
         return False
 
+    # --- label the letters (connected components) so each one gets its own
+    # --- border, and so the border never rises above its letter ---
+    labels: dict[tuple[int, int], int] = {}
+    components: dict[int, list[tuple[int, int]]] = {}
+    label = 0
+    for r in range(height):
+        for c in range(width):
+            if not art[r][c] or (r, c) in labels:
+                continue
+            label += 1
+            stack = [(r, c)]
+            members: list[tuple[int, int]] = []
+            labels[(r, c)] = label
+            while stack:
+                cr, cc = stack.pop()
+                members.append((cr, cc))
+                for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nr, nc = cr + dr, cc + dc
+                    if (
+                        0 <= nr < height
+                        and 0 <= nc < width
+                        and art[nr][nc]
+                        and (nr, nc) not in labels
+                    ):
+                        labels[(nr, nc)] = label
+                        stack.append((nr, nc))
+            components[label] = members
+    comp_top = {lab: min(r for r, _ in cells) for lab, cells in components.items()}
+
     for r in range(out_h):
         for c in range(out_w):
             if canvas[r][c][0] is not None:
@@ -200,6 +229,18 @@ def banner_rich() -> Text:
             below = is_ink(r + 2, c)
             left = is_ink(r, c - 2)
             right = is_ink(r, c + 2)
+            if below and not above:
+                continue  # no top edge: the border only runs down the sides
+            # never rise above the letter this border belongs to
+            ar, ac = r - pad, c - pad
+            owners = {
+                labels[(ar + dr, ac + dc)]
+                for dr in (-2, -1, 0, 1, 2)
+                for dc in (-2, -1, 0, 1, 2)
+                if (ar + dr, ac + dc) in labels
+            }
+            if owners and all(ar < comp_top[lab] for lab in owners):
+                continue
             char = "_" if (above or below) and not (left or right) else "/"
             canvas[r][c] = (rim, char)
 
