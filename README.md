@@ -99,6 +99,36 @@ technique, at a demo scale, and it is honest about the difference.*
 
 ## 4. Install
 
+### Quick start (already installed on this machine)
+
+Double-click one of these in `D:\breach`:
+
+| file | what it does |
+|---|---|
+| `run_cli.bat` | opens the interactive Breach CLI (`breach chat`) in a terminal |
+| `run_web.bat` | starts the web UI and opens http://localhost:8501 |
+
+Or from any terminal:
+
+```powershell
+cd D:\breach
+D:\breach\.venv\Scripts\breach.exe chat          # interactive CLI
+D:\breach\.venv\Scripts\breach.exe web           # web UI on http://localhost:8501
+D:\breach\.venv\Scripts\breach.exe check --example euler
+```
+
+To use the plain `breach` command (instead of the full path), activate the
+environment first:
+
+```powershell
+cd D:\breach
+.venv\Scripts\Activate.ps1      # PowerShell
+# or: .venv\Scripts\activate.bat  (cmd)
+breach chat
+```
+
+### From scratch
+
 ```bash
 cd breach
 python -m venv .venv
