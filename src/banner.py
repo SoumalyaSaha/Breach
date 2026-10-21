@@ -114,24 +114,26 @@ def banner_text() -> str:
 
 
 def banner_rich() -> Text:
-    """The wordmark: solid red blocks, a green 3D extrusion, and a block frame.
+    """The wordmark: solid red blocks, a green 3D extrusion, and a thin
+    '/' style border tracing the perimeter of every letter.
 
-    The frame is built from the same `█` glyphs as the letters, so the whole
-    thing reads as one logo: a red block border confining the red wordmark,
-    both lifted off the background by the green extrusion.
+    The border sits one cell away from the blocks, so each letter keeps a
+    clean gap around it — the reference artwork's look, but per letter
+    instead of one big frame.
     """
     lines = _pick_banner(_get_console().width)
     height = len(lines)
     width = max((len(l) for l in lines), default=0)
-    ink = [[ch != " " for ch in line.ljust(width)] for line in lines]
+    art = [[ch != " " for ch in line.ljust(width)] for line in lines]
 
-    # padding around the letters: room for the gap, the frame and the
-    # frame's own extrusion
+    # padding: room for the gap, the border and the extrusion
     pad = 4
     out_h, out_w = height + 2 * pad, width + 2 * pad
 
     def is_ink(r: int, c: int) -> bool:
-        return 0 <= r < height and 0 <= c < width and ink[r][c]
+        """Canvas-space ink test (the art is drawn at offset `pad`)."""
+        rr, cc = r - pad, c - pad
+        return 0 <= rr < height and 0 <= cc < width and art[rr][cc]
 
     # flood fill the empty cells from the border: whatever stays unreachable is
     # a counter (a hole inside the letters) and must stay dark.
@@ -159,28 +161,47 @@ def banner_rich() -> Text:
     canvas: list[list[tuple[Optional[str], str]]] = [
         [(None, " ") for _ in range(out_w)] for _ in range(out_h)
     ]
-    # --- the letters, offset into the padded canvas ---
+
+    # --- the letters ---
     for r in range(height):
         for c in range(width):
-            if not ink[r][c]:
-                continue
-            rr, cc = r + pad, c + pad
-            canvas[rr][cc] = (fill, "█")
-            # the green extrusion: the letter copied one cell down-right
-            if rr + 1 < out_h and cc + 1 < out_w:
-                canvas[rr + 1][cc + 1] = (rim, "█")
+            if art[r][c]:
+                canvas[r + pad][c + pad] = (fill, "█")
 
-    # --- the frame: a ring of blocks confining the wordmark ---
-    f_top = pad - 2
-    f_bottom = pad + height + 1
-    f_left = pad - 2
-    f_right = pad + width + 1
-    for c in range(f_left, f_right + 1):
-        canvas[f_top][c] = (fill, "█")
-        canvas[f_bottom][c] = (fill, "█")
-    for r in range(f_top, f_bottom + 1):
-        canvas[r][f_left] = (fill, "█")
-        canvas[r][f_right] = (fill, "█")
+    # --- the green extrusion: every letter copied one cell down-right ---
+    for r in range(height):
+        for c in range(width):
+            if not art[r][c]:
+                continue
+            rr, cc = r + pad + 1, c + pad + 1
+            if rr < out_h and cc < out_w and canvas[rr][cc][0] is None:
+                canvas[rr][cc] = (rim, "█")
+
+    # --- a thin '/' style border hugging the perimeter of every letter ---
+    def near(r: int, c: int, radius: int) -> bool:
+        """Is (r, c) within `radius` cells of any ink cell?"""
+        for dr in range(-radius, radius + 1):
+            for dc in range(-radius, radius + 1):
+                if is_ink(r + dr, c + dc):
+                    return True
+        return False
+
+    for r in range(out_h):
+        for c in range(out_w):
+            if canvas[r][c][0] is not None:
+                continue
+            if near(r, c, 1):
+                continue  # keep a one-cell gap around the blocks
+            if not near(r, c, 2):
+                continue  # only the immediate perimeter
+            if not outside[r][c]:
+                continue  # inside an enclosed counter -> leave it dark
+            above = is_ink(r - 2, c)
+            below = is_ink(r + 2, c)
+            left = is_ink(r, c - 2)
+            right = is_ink(r, c + 2)
+            char = "_" if (above or below) and not (left or right) else "/"
+            canvas[r][c] = (rim, char)
 
     text = Text()
     for r in range(out_h):
