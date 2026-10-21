@@ -91,9 +91,9 @@ st.markdown(
       h1, h2, h3 { color: #d1380d; }
       .breach-banner {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-weight: 800; letter-spacing: .12em; color: #90ee90;
-        background: #262626; border: 2px solid #d1380d; border-radius: 8px;
-        text-shadow: 2px 2px 0 #555555;
+        font-weight: 800; letter-spacing: .12em; color: #e8413a;
+        background: #0d1117; border: 2px solid #d1380d; border-radius: 8px;
+        text-shadow: 2px 2px 0 #2f9e44;
         padding: .6rem 1rem; display: inline-block; margin-bottom: .6rem;
       }
       .verdict-counter { border-left: 4px solid #d1380d; padding: .5rem .8rem;
