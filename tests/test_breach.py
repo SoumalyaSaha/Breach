@@ -176,6 +176,25 @@ def test_challenge_step_answers_the_specific_objection():
     assert state.get_step(3) is not None  # the new sub-claim was appended
 
 
+def test_unapplicable_patch_does_not_downgrade_the_verdict():
+    """If the suggested constraint cannot be applied, the verdict stays put."""
+    state = _state_with_counterexample()
+    stub = StubClient(
+        [
+            {
+                "response": "I concede, and the missing assumption is 'x is nonzero'.",
+                "concedes": True,
+                # not a solver expression — the solver cannot parse it
+                "new_constraint": "x is nonzero",
+                "new_step": "",
+            }
+        ]
+    )
+    state = challenge_step(state, 2, "what about x = 0?", client=stub)
+    assert state.verdict == "counterexample_found"
+    assert "could not be applied" in (state.get_step(2).agent_response or "")
+
+
 # ---------------------------------------------------------------------------
 # Citations must never be fabricated
 # ---------------------------------------------------------------------------

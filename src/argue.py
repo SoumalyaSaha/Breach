@@ -116,12 +116,21 @@ def challenge_step(
         # the objection broke the proof — re-check with the new constraint
         patched = _patch_state(proof_state, new_constraint, client=client, memory=memory)
         if patched is not None:
-            proof_state.verdict = patched.verdict
-            proof_state.counterexample = patched.counterexample
-            proof_state.unknown_reason = patched.unknown_reason
-            proof_state.unknown_info = patched.unknown_info
-            proof_state.extra_constraints = patched.extra_constraints
-            proof_state.counterexample = patched.counterexample
+            if patched.verdict == "unknown":
+                # The patch could not be applied cleanly. Do NOT silently
+                # downgrade the verdict — keep the original one and say why.
+                step.agent_response = (
+                    (step.agent_response or "")
+                    + f"\n\n(The suggested constraint '{new_constraint}' could not be applied "
+                    f"cleanly: {patched.unknown_reason or 'the solver could not decide'}."
+                    " The verdict below is unchanged.)"
+                )
+            else:
+                proof_state.verdict = patched.verdict
+                proof_state.counterexample = patched.counterexample
+                proof_state.unknown_reason = patched.unknown_reason
+                proof_state.unknown_info = patched.unknown_info
+                proof_state.extra_constraints = patched.extra_constraints
 
     step.status = "resolved"
     return proof_state
