@@ -35,12 +35,25 @@ RED_BEVEL = "#c1352b"  # slightly darker red down the right-hand edge
 GREEN_RIM = "#2f9e44"  # rim + drop shadow
 PANEL_BG = "#0d1117"  # near-black background
 
+#: vertical gradient of the letter fill (top -> bottom), like the reference
+GRAD_TOP = "#7d1109"
+GRAD_BOTTOM = "#ffe6df"
+
 _FALLBACK = {
     RED_FILL: "bright_red",
     RED_BEVEL: "red",
     GREEN_RIM: "bright_green",
     PANEL_BG: "black",
+    GRAD_TOP: "red",
+    GRAD_BOTTOM: "bright_red",
 }
+
+
+def _mix(colour_a: str, colour_b: str, t: float) -> str:
+    """Blend two hex colours."""
+    a = tuple(int(colour_a[i : i + 2], 16) for i in (1, 3, 5))
+    b = tuple(int(colour_b[i : i + 2], 16) for i in (1, 3, 5))
+    return "#" + "".join(f"{int(round(a[i] + (b[i] - a[i]) * t)):02x}" for i in range(3))
 
 
 def _hex(colour: str) -> str:
@@ -82,32 +95,32 @@ def _banner_art(font: str, scale: int, shear: int) -> list[str]:
 
 #: (font, horizontal scale, italic shear) candidates, widest/nicest first.
 BANNER_STYLES = (
-    ("banner3", 2, 2),  # chunky italic blocks (needs ~132 columns)
-    ("banner3", 1, 1),  # compact italic blocks
-    ("big", 1, 1),
+    ("banner3", 2, 0),  # chunky pixel letters (needs ~130 columns)
+    ("banner3", 1, 0),  # compact pixel letters
+    ("big", 1, 0),
     ("slant", 1, 0),    # last resort: the thin slanted wordmark
 )
 
 
-def _pick_banner(available_width: int) -> tuple[list[str], int]:
+def _pick_banner(available_width: int) -> tuple[list[str], int, int]:
     """Pick the biggest wordmark that fits the terminal.
 
-    Returns the (unsheared) art and the italic shear to apply.
+    Returns the (unsheared) art, the italic shear and the horizontal scale.
     """
     forced = os.environ.get("BREACH_BANNER_FONT")
-    candidates = ((forced, 2, 2),) if forced else BANNER_STYLES
+    candidates = ((forced, 2, 0),) if forced else BANNER_STYLES
     for font, scale, shear in candidates:
         lines = _banner_art(font, scale, shear)
         width = max((len(l) for l in lines), default=0)
         if width + 8 + (len(lines) - 1) * shear <= available_width:
-            return lines, shear
+            return lines, shear, scale
     font, scale, shear = candidates[-1]
-    return _banner_art(font, scale, shear), shear
+    return _banner_art(font, scale, shear), shear, scale
 
 
 def banner_lines() -> list[str]:
     """The raw wordmark (letters only, no shadow)."""
-    lines, shear = _pick_banner(_get_console().width)
+    lines, shear, _scale = _pick_banner(_get_console().width)
     height = len(lines)
     return [" " * ((height - 1 - r) * shear) + line for r, line in enumerate(lines)]
 
@@ -125,7 +138,7 @@ def banner_rich() -> Text:
     clean gap around it — the reference artwork's look, but per letter
     instead of one big frame.
     """
-    base_lines, shear = _pick_banner(_get_console().width)
+    base_lines, shear, scale = _pick_banner(_get_console().width)
     height = len(base_lines)
     base_width = max((len(l) for l in base_lines), default=0)
     base = [[ch != " " for ch in line.ljust(base_width)] for line in base_lines]
@@ -177,17 +190,26 @@ def banner_rich() -> Text:
     fill = _hex(RED_FILL)
     rim = _hex(GREEN_RIM)
 
+    # the vertical gradient of the letter fill (dark at the top, light at the
+    # bottom) — the reference logo's signature look
+    gradient: list[Optional[str]] = []
+    for r in range(height):
+        t = r / max(1, height - 1)
+        colour = _mix(GRAD_TOP, GRAD_BOTTOM, t)
+        gradient.append(colour if _hex(colour) == colour else None)
+
     canvas: list[list[tuple[Optional[str], str]]] = [
         [(None, " ") for _ in range(out_w)] for _ in range(out_h)
     ]
 
     # --- the letters ---
     for r in range(height):
+        style = gradient[r] or fill
         for c in range(base_width):
             if not base[r][c]:
                 continue
             sr, sc = base_pos(r, c)
-            canvas[sr + pad][sc + pad] = (fill, "█")
+            canvas[sr + pad][sc + pad] = (style, "█")
 
     # --- the green extrusion: every letter copied one cell down-right ---
     for r in range(height):
@@ -200,6 +222,11 @@ def banner_rich() -> Text:
                 canvas[rr][cc] = (rim, "█")
 
     # --- a thin '/' style border hugging the perimeter of every letter ---
+    # the border keeps a proportional gap: the bigger the blocks, the wider
+    # the gap, so the border never lands inside a letter's counters
+    gap = max(1, scale)
+    edge = gap + 1
+
     def near(r: int, c: int, radius: int) -> bool:
         """Is (r, c) within `radius` cells of any ink cell?"""
         for dr in range(-radius, radius + 1):
@@ -207,6 +234,13 @@ def banner_rich() -> Text:
                 if is_ink(r + dr, c + dc):
                     return True
         return False
+
+    def ink_at(r: int, c: int, radius: int) -> bool:
+        """Is there ink exactly `radius` cells away (in one direction)?"""
+        return any(
+            is_ink(r + dr, c + dc)
+            for dr, dc in ((-radius, 0), (radius, 0), (0, -radius), (0, radius))
+        )
 
     # --- label the letters (connected components of the *unsheared* art, so a
     # --- letter is recognised whole before the italic shear pulls it apart)
@@ -247,31 +281,28 @@ def banner_rich() -> Text:
         for c in range(out_w):
             if canvas[r][c][0] is not None:
                 continue
-            if near(r, c, 1):
-                continue  # keep a one-cell gap around the blocks
-            if not near(r, c, 2):
+            if near(r, c, gap):
+                continue  # keep a gap around the blocks
+            if not near(r, c, edge):
                 continue  # only the immediate perimeter
             if not outside[r][c]:
                 continue  # inside an enclosed counter -> leave it dark
-            above = is_ink(r - 2, c)
-            below = is_ink(r + 2, c)
-            left = is_ink(r, c - 2)
-            right = is_ink(r, c + 2)
+            above = ink_at(r, c, edge)
+            below = ink_at(r, c, edge)
+            left = ink_at(r, c, edge)
+            right = ink_at(r, c, edge)
             if below and not above:
                 continue  # no top edge: the border only runs down the sides
             # never rise above the letter this border belongs to
             ar, ac = r - pad, c - pad
             owners = {
                 canvas_labels[(ar + dr, ac + dc)]
-                for dr in (-2, -1, 0, 1, 2)
-                for dc in (-2, -1, 0, 1, 2)
+                for dr in range(-edge, edge + 1)
+                for dc in range(-edge, edge + 1)
                 if (ar + dr, ac + dc) in canvas_labels
             }
             if owners:
-                tops = []
-                for lab in owners:
-                    sr, sc = base_pos(comp_top[lab], min(col for _, col in components[lab]))
-                    tops.append(comp_top[lab])
+                tops = [comp_top[lab] for lab in owners]
                 if all(ar < t for t in tops):
                     continue
             char = "_" if (above or below) and not (left or right) else "/"
