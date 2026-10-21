@@ -114,13 +114,21 @@ def banner_text() -> str:
 
 
 def banner_rich() -> Text:
-    """The wordmark with rim, bevel and drop shadow."""
+    """The wordmark: solid red blocks, a green 3D extrusion, and a block frame.
+
+    The frame is built from the same `█` glyphs as the letters, so the whole
+    thing reads as one logo: a red block border confining the red wordmark,
+    both lifted off the background by the green extrusion.
+    """
     lines = _pick_banner(_get_console().width)
     height = len(lines)
     width = max((len(l) for l in lines), default=0)
     ink = [[ch != " " for ch in line.ljust(width)] for line in lines]
 
-    out_h, out_w = height + 2, width + 2
+    # padding around the letters: room for the gap, the frame and the
+    # frame's own extrusion
+    pad = 4
+    out_h, out_w = height + 2 * pad, width + 2 * pad
 
     def is_ink(r: int, c: int) -> bool:
         return 0 <= r < height and 0 <= c < width and ink[r][c]
@@ -151,16 +159,28 @@ def banner_rich() -> Text:
     canvas: list[list[tuple[Optional[str], str]]] = [
         [(None, " ") for _ in range(out_w)] for _ in range(out_h)
     ]
-    for r in range(out_h):
-        for c in range(out_w):
-            if is_ink(r, c):
-                canvas[r][c] = (fill, "█")
+    # --- the letters, offset into the padded canvas ---
+    for r in range(height):
+        for c in range(width):
+            if not ink[r][c]:
                 continue
-            if not outside[r][c]:
-                continue  # counter of a letter -> stays dark
-            # the green extrusion: the letters copied one cell down-right
-            if is_ink(r - 1, c - 1):
-                canvas[r][c] = (rim, "█")
+            rr, cc = r + pad, c + pad
+            canvas[rr][cc] = (fill, "█")
+            # the green extrusion: the letter copied one cell down-right
+            if rr + 1 < out_h and cc + 1 < out_w:
+                canvas[rr + 1][cc + 1] = (rim, "█")
+
+    # --- the frame: a ring of blocks confining the wordmark ---
+    f_top = pad - 2
+    f_bottom = pad + height + 1
+    f_left = pad - 2
+    f_right = pad + width + 1
+    for c in range(f_left, f_right + 1):
+        canvas[f_top][c] = (fill, "█")
+        canvas[f_bottom][c] = (fill, "█")
+    for r in range(f_top, f_bottom + 1):
+        canvas[r][f_left] = (fill, "█")
+        canvas[r][f_right] = (fill, "█")
 
     text = Text()
     for r in range(out_h):
