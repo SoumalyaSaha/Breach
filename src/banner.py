@@ -83,7 +83,7 @@ def _banner_art(font: str, scale: int, shear: int) -> list[str]:
 
 #: (font, horizontal scale, italic shear) candidates, widest/nicest first.
 BANNER_STYLES = (
-    ("banner3", 2, 2),  # chunky italic blocks
+    ("banner3", 2, 2),  # chunky italic blocks (needs ~132 columns)
     ("banner3", 1, 1),  # compact italic blocks
     ("big", 1, 1),
     ("slant", 1, 0),    # last resort: the thin slanted wordmark
@@ -146,7 +146,6 @@ def banner_rich() -> Text:
                 queue.append((rr, cc))
 
     fill = _hex(RED_FILL)
-    bevel = _hex(RED_BEVEL)
     rim = _hex(GREEN_RIM)
 
     canvas: list[list[tuple[Optional[str], str]]] = [
@@ -155,19 +154,13 @@ def banner_rich() -> Text:
     for r in range(out_h):
         for c in range(out_w):
             if is_ink(r, c):
-                # letters: solid red, with a darker red down the right-hand
-                # edge so the blocks read as raised
-                shade = not is_ink(r, c + 1)
-                canvas[r][c] = (bevel if shade else fill, "#")
+                canvas[r][c] = (fill, "█")
                 continue
             if not outside[r][c]:
                 continue  # counter of a letter -> stays dark
-            touches_letter = any(
-                is_ink(r + dr, c + dc) for dr in (-1, 0, 1) for dc in (-1, 0, 1)
-            )
-            shadow = is_ink(r - 1, c - 1)  # the copy offset down-right
-            if touches_letter or shadow:
-                canvas[r][c] = (rim, "#")
+            # the green extrusion: the letters copied one cell down-right
+            if is_ink(r - 1, c - 1):
+                canvas[r][c] = (rim, "█")
 
     text = Text()
     for r in range(out_h):
