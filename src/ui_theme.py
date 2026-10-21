@@ -66,6 +66,8 @@ def _letter_style() -> str:
 
 
 LETTER_HEX = "90EE90"  # CSS lightgreen
+SHADOW_HEX = "555555"  # dark grey drop shadow
+PANEL_HEX = "262626"  # dark charcoal background
 
 
 def make_console(**kwargs: Any) -> Console:
@@ -138,46 +140,90 @@ def _edge_style() -> str:
     return f"bold {ACCENT}"
 
 
+def _shadow_style() -> str:
+    """Dark grey drop shadow behind the letters (the SKY 3D effect)."""
+    system = getattr(console, "color_system", None)
+    system = getattr(system, "name", system)
+    if system in ("truecolor", "eight_bit"):
+        return f"#{SHADOW_HEX}"
+    return "grey42"
+
+
+def _panel_style() -> str:
+    """Dark charcoal panel background."""
+    system = getattr(console, "color_system", None)
+    system = getattr(system, "name", system)
+    if system in ("truecolor", "eight_bit"):
+        return f"on #{PANEL_HEX}"
+    return "on black"
+
+
 def banner_rich() -> Text:
-    """The wordmark with a coloured outline around each stroke and a fill."""
+    """The wordmark: coloured letters, red outline, dark-grey drop shadow.
+
+    The shadow is the same glyphs offset one cell right and one cell down —
+    the classic ASCII 3D "raised" effect used by the reference logo. Shadow
+    cells that fall outside the letters are painted dark grey; the letters
+    themselves are drawn on top of them.
+    """
     lines = banner_lines()
     width = max((len(l) for l in lines), default=0)
-    grid = [[ch != " " for ch in line.ljust(width)] for line in lines]
-    height = len(grid)
+    height = len(lines)
+
+    # letter grid (True = ink) and the characters themselves
+    ink = [[ch != " " for ch in line.ljust(width)] for line in lines]
+    chars = [line.ljust(width) for line in lines]
 
     def is_edge(r: int, c: int) -> bool:
         for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             rr, cc = r + dr, c + dc
             if rr < 0 or rr >= height or cc < 0 or cc >= width:
                 return True
-            if not grid[rr][cc]:
+            if not ink[rr][cc]:
                 return True
         return False
 
-    text = Text()
-    # If the strokes are too thin to hold an outline (narrow terminals), we
-    # draw solid green letters instead of a mostly-red blob.
-    ink = sum(sum(1 for cell in row if cell) for row in grid)
+    ink_count = sum(sum(1 for cell in row if cell) for row in ink)
     interior = sum(
-        1
-        for r in range(height)
-        for c in range(width)
-        if grid[r][c] and not is_edge(r, c)
+        1 for r in range(height) for c in range(width) if ink[r][c] and not is_edge(r, c)
     )
-    solid = ink == 0 or interior < max(4, ink * 0.08)
-    for r, line in enumerate(lines):
+    solid = ink_count == 0 or interior < max(4, ink_count * 0.08)
+
+    # shadow: the glyphs one cell right and one cell down
+    out_w = width + 1
+    out_h = height + 1
+    canvas: list[list[tuple[Optional[str], str]]] = [
+        [(None, " ") for _ in range(out_w)] for _ in range(out_h)
+    ]
+    # 1) shadow layer
+    for r in range(height):
+        for c in range(width):
+            if ink[r][c]:
+                rr, cc = r + 1, c + 1
+                if cc < out_w and not (rr < height and cc < width and ink[rr][cc]):
+                    canvas[rr][cc] = (_shadow_style(), chars[r][c])
+    # 2) letter layer on top
+    for r in range(height):
+        for c in range(width):
+            if not ink[r][c]:
+                continue
+            style = _fill_style() if solid else (
+                _edge_style() if is_edge(r, c) else _fill_style()
+            )
+            canvas[r][c] = (style, chars[r][c])
+
+    text = Text()
+    for r in range(out_h):
         run_style: Optional[str] = None
         run_start = 0
-        for c in range(len(line) + 1):
-            style = None
-            if c < len(line) and grid[r][c]:
-                if solid:
-                    style = _fill_style()
-                else:
-                    style = _edge_style() if is_edge(r, c) else _fill_style()
+        for c in range(out_w + 1):
+            style = canvas[r][c][0] if c < out_w else None
             if style != run_style:
                 if run_start < c:
-                    text.append(line[run_start:c], style=run_style)
+                    text.append(
+                        "".join(canvas[r][cc][1] for cc in range(run_start, c)),
+                        style=run_style,
+                    )
                 run_style = style
                 run_start = c
         text.append("\n")
@@ -192,6 +238,7 @@ def print_banner(con: Optional[Console] = None) -> None:
             title=f"[bold {ACCENT}]BREACH[/bold {ACCENT}] — adversarial math checking",
             subtitle="[dim]try to break the proof, not confirm it[/dim]",
             border_style=ACCENT,
+            style=_panel_style(),
             expand=False,
         )
     )
