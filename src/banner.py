@@ -244,6 +244,53 @@ def banner_rich() -> Text:
             char = "_" if (above or below) and not (left or right) else "/"
             canvas[r][c] = (rim, char)
 
+    # --- a dashed line exactly above the heads of the letters ---
+    dashes: dict[int, list[tuple[int, int]]] = {}
+    for lab, cells in components.items():
+        heads: dict[int, int] = {}
+        for r, c in cells:
+            if c not in heads or r < heads[c]:
+                heads[c] = r
+        for c, head in heads.items():
+            rr, cc = head - 2 + pad, c + pad
+            if not (0 <= rr < out_h and 0 <= cc < out_w):
+                continue
+            if canvas[rr][cc][0] is not None:
+                continue
+            # the dash must sit in open space, right above the letter's head
+            clash = False
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    if labels.get((rr + dr - pad, cc + dc - pad)):
+                        clash = True
+            if clash:
+                continue
+            # ...and above everything else in that column
+            if any(art[ar][c] for ar in range(0, head)):
+                continue
+            # ...and clear of any other letter's strokes
+            for other, cells in components.items():
+                if other == lab:
+                    continue
+                for orow, ocol in cells:
+                    if abs(orow - (head - 2)) <= 2 and abs(ocol - c) <= 2:
+                        clash = True
+                        break
+                if clash:
+                    break
+            if clash:
+                continue
+            dashes.setdefault(lab, []).append((rr, cc))
+
+    # one line per letter: paint them, then keep only the highest of each
+    for lab, cells in dashes.items():
+        top = min(r for r, _ in cells)
+        for rr, cc in cells:
+            if rr == top:
+                canvas[rr][cc] = (rim, "-")
+            else:
+                canvas[rr][cc] = (None, " ")
+
     text = Text()
     for r in range(out_h):
         run_style: Optional[str] = None
