@@ -7,6 +7,7 @@ this is an adversarial tool, not a friendly one.
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Any, Optional
 
@@ -72,27 +73,122 @@ def make_console(**kwargs: Any) -> Console:
     return Console(**kwargs)
 
 
-def banner_text() -> str:
-    """The BREACH wordmark. Uses pyfiglet when available."""
+def _banner_art(font: str, scale: int) -> list[str]:
+    """Render the wordmark with a font, scaled horizontally."""
     try:
         import pyfiglet
 
-        return pyfiglet.figlet_format("BREACH", font="slant").rstrip("\n")
+        art = pyfiglet.figlet_format("BREACH", font=font).splitlines()
     except Exception:
-        return r"""
- ____ ____  ____  _____ ______ ______  _____
-| __ )  _ \|  _ \| ____|  ____|  ____|| ____|
-|  _ \ | | | | | |  _| |__   |__   | |__ |  _|
-| |_) || |_| | | | |____|  __|  __|  |  _| |___
-|____/ \___/|_| |_|_____|_|   |_|    |_| |_|
-"""
+        art = []
+    if not art:
+        art = [
+            " ____ ____  ____  _____ ______ ______  _____",
+            "| __ )  _ \\|  _ \\| ____|  ____|  ____|| ____|",
+            "|  _ \\ | | | | | |  _| |__   |__   | |__ |  _|",
+            "| |_) || |_| | | | |____|  __|  __|  |  _| |___",
+            "|____/ \\___/|_| |_|_____|_|   |_|    |_| |_",
+        ]
+    scaled = ["".join(ch * scale for ch in line).rstrip() for line in art]
+    while scaled and not scaled[-1]:
+        scaled.pop()
+    return scaled
+
+
+#: (font, horizontal scale) candidates, widest/nicest first.
+BANNER_STYLES = (("banner3", 2), ("doom", 2), ("big", 2), ("banner3", 1))
+
+
+def _pick_banner(available_width: int) -> tuple[str, list[str]]:
+    """Pick the biggest wordmark that fits the terminal."""
+    forced = os.environ.get("BREACH_BANNER_FONT")
+    candidates = ((forced, 2),) if forced else BANNER_STYLES
+    for font, scale in candidates:
+        lines = _banner_art(font, scale)
+        width = max((len(l) for l in lines), default=0)
+        if width + 6 <= available_width:
+            return font, lines
+    # nothing fits comfortably — use the smallest and let rich clip
+    return (forced or "banner3"), _banner_art(forced or "banner3", 1)
+
+
+def banner_text() -> str:
+    """The BREACH wordmark as raw text (solid block letters)."""
+    _font, lines = _pick_banner(console.width)
+    return "\n".join(lines)
+
+
+def banner_lines() -> list[str]:
+    """The wordmark rendered as solid blocks (pyfiglet 'banner3')."""
+    _font, lines = _pick_banner(console.width)
+    return lines
+
+
+def _fill_style() -> str:
+    """Light green for the inside of the letters (survives 16-colour terminals)."""
+    system = getattr(console, "color_system", None)
+    system = getattr(system, "name", system)
+    if system in ("truecolor", "eight_bit"):
+        return f"bold #{LETTER_HEX}"
+    return "bold bright_green"
+
+
+def _edge_style() -> str:
+    """Red/orange outline around the letters — matches the panel border."""
+    return f"bold {ACCENT}"
+
+
+def banner_rich() -> Text:
+    """The wordmark with a coloured outline around each stroke and a fill."""
+    lines = banner_lines()
+    width = max((len(l) for l in lines), default=0)
+    grid = [[ch != " " for ch in line.ljust(width)] for line in lines]
+    height = len(grid)
+
+    def is_edge(r: int, c: int) -> bool:
+        for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            rr, cc = r + dr, c + dc
+            if rr < 0 or rr >= height or cc < 0 or cc >= width:
+                return True
+            if not grid[rr][cc]:
+                return True
+        return False
+
+    text = Text()
+    # If the strokes are too thin to hold an outline (narrow terminals), we
+    # draw solid green letters instead of a mostly-red blob.
+    ink = sum(sum(1 for cell in row if cell) for row in grid)
+    interior = sum(
+        1
+        for r in range(height)
+        for c in range(width)
+        if grid[r][c] and not is_edge(r, c)
+    )
+    solid = ink == 0 or interior < max(4, ink * 0.08)
+    for r, line in enumerate(lines):
+        run_style: Optional[str] = None
+        run_start = 0
+        for c in range(len(line) + 1):
+            style = None
+            if c < len(line) and grid[r][c]:
+                if solid:
+                    style = _fill_style()
+                else:
+                    style = _edge_style() if is_edge(r, c) else _fill_style()
+            if style != run_style:
+                if run_start < c:
+                    text.append(line[run_start:c], style=run_style)
+                run_style = style
+                run_start = c
+        text.append("\n")
+    return text
 
 
 def print_banner(con: Optional[Console] = None) -> None:
     con = con or console
     con.print(
         Panel(
-            Text(banner_text(), style=_letter_style()),
+            banner_rich(),
             title=f"[bold {ACCENT}]BREACH[/bold {ACCENT}] — adversarial math checking",
             subtitle="[dim]try to break the proof, not confirm it[/dim]",
             border_style=ACCENT,
