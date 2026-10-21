@@ -54,7 +54,9 @@ def _hex(colour: str) -> str:
 
 
 def _banner_art(font: str, scale: int, shear: int) -> list[str]:
-    """Render the wordmark: a block font, scaled, then sheared into an italic."""
+    """Render the wordmark: a block font, scaled. The italic shear is applied
+    later (in canvas space) so that letters can be recognised before they are
+    slanted."""
     try:
         import pyfiglet
 
@@ -75,9 +77,6 @@ def _banner_art(font: str, scale: int, shear: int) -> list[str]:
         art.pop()
     if scale > 1:
         art = ["".join(ch * scale for ch in line) for line in art]
-    if shear:
-        height = len(art)
-        art = [" " * ((height - 1 - r) * shear) + line for r, line in enumerate(art)]
     return art
 
 
@@ -90,22 +89,27 @@ BANNER_STYLES = (
 )
 
 
-def _pick_banner(available_width: int) -> list[str]:
-    """Pick the biggest wordmark that fits the terminal."""
+def _pick_banner(available_width: int) -> tuple[list[str], int]:
+    """Pick the biggest wordmark that fits the terminal.
+
+    Returns the (unsheared) art and the italic shear to apply.
+    """
     forced = os.environ.get("BREACH_BANNER_FONT")
     candidates = ((forced, 2, 2),) if forced else BANNER_STYLES
     for font, scale, shear in candidates:
         lines = _banner_art(font, scale, shear)
         width = max((len(l) for l in lines), default=0)
-        if width + 8 <= available_width:
-            return lines
+        if width + 8 + (len(lines) - 1) * shear <= available_width:
+            return lines, shear
     font, scale, shear = candidates[-1]
-    return _banner_art(font, scale, shear)
+    return _banner_art(font, scale, shear), shear
 
 
 def banner_lines() -> list[str]:
     """The raw wordmark (letters only, no shadow)."""
-    return _pick_banner(_get_console().width)
+    lines, shear = _pick_banner(_get_console().width)
+    height = len(lines)
+    return [" " * ((height - 1 - r) * shear) + line for r, line in enumerate(lines)]
 
 
 def banner_text() -> str:
@@ -121,10 +125,21 @@ def banner_rich() -> Text:
     clean gap around it — the reference artwork's look, but per letter
     instead of one big frame.
     """
-    lines = _pick_banner(_get_console().width)
-    height = len(lines)
-    width = max((len(l) for l in lines), default=0)
-    art = [[ch != " " for ch in line.ljust(width)] for line in lines]
+    base_lines, shear = _pick_banner(_get_console().width)
+    height = len(base_lines)
+    base_width = max((len(l) for l in base_lines), default=0)
+    base = [[ch != " " for ch in line.ljust(base_width)] for line in base_lines]
+
+    # the italic shear: every row is pushed right as it goes down
+    shift = [(height - 1 - r) * shear for r in range(height)]
+    width = base_width + shift[0]
+
+    # the sheared art (what we actually draw)
+    art = [[False] * width for _ in range(height)]
+    for r in range(height):
+        for c in range(base_width):
+            if base[r][c]:
+                art[r][c + shift[r]] = True
 
     # padding: room for the gap, the border and the extrusion
     pad = 4
@@ -134,6 +149,10 @@ def banner_rich() -> Text:
         """Canvas-space ink test (the art is drawn at offset `pad`)."""
         rr, cc = r - pad, c - pad
         return 0 <= rr < height and 0 <= cc < width and art[rr][cc]
+
+    def base_pos(r: int, c: int) -> tuple[int, int]:
+        """Sheared canvas position of an unsheared art cell."""
+        return r, c + shift[r]
 
     # flood fill the empty cells from the border: whatever stays unreachable is
     # a counter (a hole inside the letters) and must stay dark.
@@ -164,16 +183,19 @@ def banner_rich() -> Text:
 
     # --- the letters ---
     for r in range(height):
-        for c in range(width):
-            if art[r][c]:
-                canvas[r + pad][c + pad] = (fill, "█")
+        for c in range(base_width):
+            if not base[r][c]:
+                continue
+            sr, sc = base_pos(r, c)
+            canvas[sr + pad][sc + pad] = (fill, "█")
 
     # --- the green extrusion: every letter copied one cell down-right ---
     for r in range(height):
-        for c in range(width):
-            if not art[r][c]:
+        for c in range(base_width):
+            if not base[r][c]:
                 continue
-            rr, cc = r + pad + 1, c + pad + 1
+            sr, sc = base_pos(r, c)
+            rr, cc = sr + pad + 1, sc + pad + 1
             if rr < out_h and cc < out_w and canvas[rr][cc][0] is None:
                 canvas[rr][cc] = (rim, "█")
 
@@ -186,14 +208,14 @@ def banner_rich() -> Text:
                     return True
         return False
 
-    # --- label the letters (connected components) so each one gets its own
-    # --- border, and so the border never rises above its letter ---
+    # --- label the letters (connected components of the *unsheared* art, so a
+    # --- letter is recognised whole before the italic shear pulls it apart)
     labels: dict[tuple[int, int], int] = {}
     components: dict[int, list[tuple[int, int]]] = {}
     label = 0
     for r in range(height):
-        for c in range(width):
-            if not art[r][c] or (r, c) in labels:
+        for c in range(base_width):
+            if not base[r][c] or (r, c) in labels:
                 continue
             label += 1
             stack = [(r, c)]
@@ -206,14 +228,20 @@ def banner_rich() -> Text:
                     nr, nc = cr + dr, cc + dc
                     if (
                         0 <= nr < height
-                        and 0 <= nc < width
-                        and art[nr][nc]
+                        and 0 <= nc < base_width
+                        and base[nr][nc]
                         and (nr, nc) not in labels
                     ):
                         labels[(nr, nc)] = label
                         stack.append((nr, nc))
             components[label] = members
     comp_top = {lab: min(r for r, _ in cells) for lab, cells in components.items()}
+
+    # labels indexed by canvas position
+    canvas_labels: dict[tuple[int, int], int] = {}
+    for (br, bc), lab in labels.items():
+        sr, sc = base_pos(br, bc)
+        canvas_labels[(sr, sc)] = lab
 
     for r in range(out_h):
         for c in range(out_w):
@@ -234,65 +262,59 @@ def banner_rich() -> Text:
             # never rise above the letter this border belongs to
             ar, ac = r - pad, c - pad
             owners = {
-                labels[(ar + dr, ac + dc)]
+                canvas_labels[(ar + dr, ac + dc)]
                 for dr in (-2, -1, 0, 1, 2)
                 for dc in (-2, -1, 0, 1, 2)
-                if (ar + dr, ac + dc) in labels
+                if (ar + dr, ac + dc) in canvas_labels
             }
-            if owners and all(ar < comp_top[lab] for lab in owners):
-                continue
+            if owners:
+                tops = []
+                for lab in owners:
+                    sr, sc = base_pos(comp_top[lab], min(col for _, col in components[lab]))
+                    tops.append(comp_top[lab])
+                if all(ar < t for t in tops):
+                    continue
             char = "_" if (above or below) and not (left or right) else "/"
             canvas[r][c] = (rim, char)
 
     # --- a dashed line exactly above the heads of the letters ---
-    dashes: dict[int, list[tuple[int, int]]] = {}
     for lab, cells in components.items():
-        heads: dict[int, int] = {}
-        for r, c in cells:
-            if c not in heads or r < heads[c]:
-                heads[c] = r
-        for c, head in heads.items():
-            rr, cc = head - 2 + pad, c + pad
+        top = comp_top[lab]
+        bottom = max(r for r, _ in cells)
+        rows_used = len({r for r, _ in cells})
+        if bottom - top < 2 or rows_used < 3 or len(cells) < 10:
+            continue  # a sliver of a letter, not a head
+        for c in sorted({col for _, col in cells}):
+            if not base[top][c]:
+                continue  # the letter's head does not reach this column
+            # the dash sits directly above the head, in the sheared space
+            sr, sc = base_pos(top, c)
+            rr, cc = sr - 1 + pad, sc + pad
             if not (0 <= rr < out_h and 0 <= cc < out_w):
                 continue
             if canvas[rr][cc][0] is not None:
                 continue
-            # the dash must sit in open space, right above the letter's head
             clash = False
             for dr in (-1, 0, 1):
                 for dc in (-1, 0, 1):
-                    if labels.get((rr + dr - pad, cc + dc - pad)):
+                    other = canvas_labels.get((sr + dr, sc + dc))
+                    if other is not None and other != lab:
                         clash = True
             if clash:
                 continue
-            # ...and above everything else in that column
-            if any(art[ar][c] for ar in range(0, head)):
-                continue
-            # ...and clear of any other letter's strokes
-            for other, cells in components.items():
-                if other == lab:
-                    continue
-                for orow, ocol in cells:
-                    if abs(orow - (head - 2)) <= 2 and abs(ocol - c) <= 2:
-                        clash = True
-                        break
-                if clash:
-                    break
-            if clash:
-                continue
-            dashes.setdefault(lab, []).append((rr, cc))
+            canvas[rr][cc] = (rim, "-")
 
-    # one line per letter: paint them, then keep only the highest of each
-    for lab, cells in dashes.items():
-        top = min(r for r, _ in cells)
-        for rr, cc in cells:
-            if rr == top:
-                canvas[rr][cc] = (rim, "-")
-            else:
-                canvas[rr][cc] = (None, " ")
+    # trim the empty rows above and below the wordmark (keep one on top)
+    first = 0
+    while first < out_h and all(canvas[first][c][0] is None for c in range(out_w)):
+        first += 1
+    start = max(0, first - 1)
+    last = out_h - 1
+    while last > first and all(canvas[last][c][0] is None for c in range(out_w)):
+        last -= 1
 
     text = Text()
-    for r in range(out_h):
+    for r in range(start, last + 1):
         run_style: Optional[str] = None
         run_start = 0
         for c in range(out_w + 1):
