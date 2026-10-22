@@ -1,5 +1,9 @@
 # Breach
 
+<p align="center">
+  <img src="docs/breach-cli.png" alt="Breach CLI - the BREACH wordmark and an interactive session" width="760">
+</p>
+
 > *"LLMs can hallucinate a proof that looks right. Breach's job is to try to **break** your proof, not confirm it."*
 
 Breach is an adversarial mathematics agent. Give it an informal claim and it does
@@ -7,7 +11,6 @@ not try to prove it true — it tries to **falsify** it, using real solvers (Z3,
 SymPy) to hunt for a counterexample, and it tells you honestly when it cannot
 resolve something.
 
-**Repository:** canonical `beaskt/Breach` · published mirror `SoumalyaSaha/Breach`
 
 ```
    ┌───────────┐   natural language    ┌────────────┐   structured form   ┌──────────┐
@@ -127,7 +130,7 @@ instead of guessing — you can still type the claim in the chat.
 ### Setup (60 seconds)
 
 ```bash
-git clone https://github.com/SoumalyaSaha/Breach.git && cd Breach
+git clone https://github.com/beaskt/Breach.git && cd Breach
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.txt && pip install -e .
 cp .env.example .env                                    # then paste YOUR key in
