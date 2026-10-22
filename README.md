@@ -17,8 +17,8 @@ resolve something.
    │   claim   │ ────────────────────► │  the LLM   │ ──────────────────► │  Z3 /    │
    │ (English) │                       │ (translate │                     │  SymPy   │
    └───────────┘                       │   only)    │                     └──────────┘
-                                                                      │ SAT / UNSAT / unknown
-                                                                      ▼
+                                                                               │ SAT / UNSAT / unknown
+                                                                               ▼
    ┌───────────┐   counterexample,      ┌────────────┐
    │  verdict  │ ◄────────────────────  │  solver    │  ← the LLM never decides anything
    └───────────┘   scope, honesty       └────────────┘
