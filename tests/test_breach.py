@@ -409,6 +409,96 @@ def test_web_script_has_no_undefined_module_level_names():
     assert "def _canvas_png_bytes" not in text
 
 
+# ---------------------------------------------------------------------------
+# Translation validation + retry (the BVC-002 fix, see CHANGELOG.md)
+# ---------------------------------------------------------------------------
+def test_encoding_problem_detects_an_unparseable_encoding():
+    from src.engine import SymbolicForm, Variable, _encoding_problem
+
+    good = SymbolicForm(
+        backend="z3",
+        variables=[Variable("n", "int", 0, 10)],
+        constraints=["n >= 0", "n <= 10"],
+        claim_expr="n * n >= 0",
+    )
+    assert _encoding_problem(good) is None
+
+    broken = SymbolicForm(
+        backend="z3",
+        variables=[Variable("n", "int", 0, 10)],
+        constraints=["n >= 0"],
+        claim_expr="n ** ( >= 0",       # not a valid expression
+    )
+    problem = _encoding_problem(broken)
+    assert problem is not None and "could not be parsed" in problem
+
+    # an out-of-scope claim (no expression) is NOT a parse failure
+    empty = SymbolicForm(backend="sympy", claim_expr="")
+    assert _encoding_problem(empty) is None
+
+
+def test_translate_claim_retries_when_the_encoding_does_not_parse():
+    """The model is asked again with the error when its encoding is unusable."""
+    from src.engine import translate_claim
+
+    class FlakyClient:
+        def __init__(self):
+            self.calls = 0
+
+        def chat_json(self, messages, default=None, **kwargs):
+            self.calls += 1
+            if self.calls == 1:  # first attempt: broken encoding
+                return (
+                    {
+                        "backend": "z3",
+                        "variables": [{"name": "n", "type": "int", "lower": 0, "upper": 10}],
+                        "constraints": ["n >= 0"],
+                        "claim_expr": "n ** ( >= 0",
+                    },
+                    "{}",
+                )
+            return (
+                {
+                    "backend": "z3",
+                    "variables": [{"name": "n", "type": "int", "lower": 0, "upper": 10}],
+                    "constraints": ["n >= 0", "n <= 10"],
+                    "claim_expr": "n * n >= 0",
+                },
+                "{}",
+            )
+
+    client = FlakyClient()
+    form = translate_claim("for every integer n, n^2 >= 0", client=client)
+    assert client.calls == 2, "the broken encoding should have triggered a retry"
+    assert form.claim_expr == "n * n >= 0"
+    assert form.constraints == ["n >= 0", "n <= 10"]
+
+
+def test_translate_claim_gives_up_after_the_attempt_limit():
+    from src.engine import MAX_TRANSLATION_ATTEMPTS, translate_claim
+
+    class AlwaysBroken:
+        def __init__(self):
+            self.calls = 0
+
+        def chat_json(self, messages, default=None, **kwargs):
+            self.calls += 1
+            return (
+                {
+                    "backend": "z3",
+                    "variables": [{"name": "n", "type": "int", "lower": 0, "upper": 10}],
+                    "constraints": ["n >= 0"],
+                    "claim_expr": "n ** ( >= 0",
+                },
+                "{}",
+            )
+
+    client = AlwaysBroken()
+    form = translate_claim("for every integer n, n^2 >= 0", client=client)
+    assert client.calls == MAX_TRANSLATION_ATTEMPTS
+    assert form.claim_expr  # the last (broken) attempt is kept, and reported as unknown
+
+
 def test_web_never_mutates_an_instantiated_widgets_state():
     """Assigning to a widget's session-state key *after* the widget was created
     raises `StreamlitWidgetAlreadyInstantiatedError`.

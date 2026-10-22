@@ -193,30 +193,61 @@ def _safe_eval(expr: str, namespace: dict[str, Any]) -> Any:
     return eval(expr, {"__builtins__": {}}, namespace)  # noqa: S307 - restricted
 
 
+#: How many times we let the LLM re-translate a claim when the encoding it
+#: produced cannot be used (unparseable) or the solver cannot cope with it.
+MAX_TRANSLATION_ATTEMPTS = 3
+
+
 def translate_claim(
     claim_text: str,
     client: Optional[LLMClient] = None,
     memory: Optional[ProofMemory] = None,
+    feedback: str = "",
+    use_cache: bool = True,
 ) -> SymbolicForm:
-    """Translate an informal claim into a structured, checkable form."""
+    """Translate an informal claim into a structured, checkable form.
+
+    The generated encoding is *validated* (it must actually parse in the
+    backend that will run it). If it does not, the model is asked again with
+    the error, up to `MAX_TRANSLATION_ATTEMPTS` times.
+    """
     key = make_key(claim_text, "translate")
-    if memory is not None:
+    if memory is not None and use_cache:
         cached = memory.read(key)
         if cached is not None:
             return SymbolicForm.from_dict(cached)
 
     client = client or get_client()
     form: Optional[SymbolicForm] = None
+    last_error = ""
     try:
-        payload, _ = client.chat_json(
-            [
-                {"role": "system", "content": TRANSLATE_PROMPT},
-                {"role": "user", "content": f"Claim: {claim_text}"},
-            ]
-        )
-        form = SymbolicForm.from_dict(payload)
-        if form.claim_expr:
-            form = _validate_form(form)
+        for attempt in range(MAX_TRANSLATION_ATTEMPTS):
+            user_msg = f"Claim: {claim_text}"
+            if feedback:
+                user_msg += (
+                    "\n\nYour previous attempt did not work: "
+                    f"{feedback}\n"
+                    "Produce a corrected encoding. Keep the search bounds small enough "
+                    "that the solver can finish, and use only the variable names you "
+                    "declare."
+                )
+            payload, _ = client.chat_json(
+                [
+                    {"role": "system", "content": TRANSLATE_PROMPT},
+                    {"role": "user", "content": user_msg},
+                ]
+            )
+            candidate = SymbolicForm.from_dict(payload)
+            if candidate.claim_expr:
+                candidate = _validate_form(candidate)
+            form = candidate
+            problem = _encoding_problem(candidate)
+            if problem is None:
+                break
+            last_error = problem
+            feedback = problem
+        if form is None:
+            raise LLMError("no translation produced")
     except (LLMUnavailable, LLMError, ValueError, KeyError, TypeError) as exc:
         form = offline_translate(claim_text) or SymbolicForm(
             backend="sympy",
@@ -224,13 +255,45 @@ def translate_claim(
             constraints=[],
             claim_expr="",
             confidence=0.0,
-            ambiguity=f"The claim could not be formalised automatically ({exc}).",
+            ambiguity=(
+                f"The claim could not be formalised automatically ({exc})."
+                + (f" Last encoding problem: {last_error}" if last_error else "")
+            ),
             scope_note="No machine-checkable formalisation was produced.",
         )
 
-    if memory is not None:
+    if memory is not None and use_cache:
         memory.write(key, form.to_dict(), source="engine.translate_claim")
     return form
+
+
+def _encoding_problem(form: SymbolicForm) -> Optional[str]:
+    """Return why the encoding is unusable, or None when it is fine.
+
+    An empty claim expression is *not* a problem: that is how a claim outside
+    Breach's scope is represented (and it is reported honestly, not retried).
+    """
+    if not form.claim_expr.strip():
+        return None
+    try:
+        if form.backend == "sympy":
+            import sympy
+
+            syms = {
+                v.name: sympy.Symbol(v.name, integer=(v.type == "int"))
+                for v in form.variables
+            }
+            _sympify_claim(form.claim_expr, syms)
+            for c in form.constraints:
+                _sympify_claim(c, syms)
+        else:
+            ns, _consts = _z3_namespace(form)
+            _safe_eval(form.claim_expr, ns)
+            for c in form.constraints:
+                _safe_eval(c, ns)
+    except Exception as exc:  # noqa: BLE001 - any parse problem is a retry
+        return f"the encoding could not be parsed by the solver: {exc}"
+    return None
 
 
 def _validate_form(form: SymbolicForm) -> SymbolicForm:
@@ -1084,6 +1147,36 @@ def breach_check(
 
     form = translate_claim(claim_text, client=client, memory=memory)
     result = run_solver(form, timeout=timeout, extra_constraints=extra_constraints)
+
+    # The encoding parsed but the solver could not cope with it (typically a
+    # too-wide search space on a nonlinear divisibility check). Ask for a
+    # tighter encoding and try again before reporting an unknown.
+    attempts = 0
+    while (
+        result.verdict == "unknown"
+        and attempts < MAX_TRANSLATION_ATTEMPTS - 1
+        and result.unknown_info is not None
+        and result.unknown_info.kind in ("timeout", "translation_ambiguity")
+    ):
+        attempts += 1
+        retry_form = translate_claim(
+            claim_text,
+            client=client,
+            memory=memory,
+            feedback=(
+                f"that encoding returned '{result.unknown_info.kind}' "
+                f"({result.unknown_info.detail})."
+            ),
+            use_cache=False,
+        )
+        if not retry_form.claim_expr.strip():
+            break
+        retry_result = run_solver(
+            retry_form, timeout=timeout, extra_constraints=extra_constraints
+        )
+        if retry_result.verdict == "unknown" and retry_result.unknown_info is None:
+            break
+        form, result = retry_form, retry_result
 
     state = ProofState(
         claim=claim_text,
