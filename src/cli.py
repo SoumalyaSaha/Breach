@@ -206,6 +206,125 @@ def _expand_symbols(text: str) -> str:
 # ---------------------------------------------------------------------------
 # commands
 # ---------------------------------------------------------------------------
+def _run_example(
+    key: str,
+    memory: Optional[ProofMemory] = None,
+    timeout: float = 10.0,
+    as_json: bool = False,
+):
+    """Run one of the built-in gallery examples. Returns the ProofState."""
+    ex = get_example(key)
+    if ex is None:
+        theme.err_console.print(f"[{theme.ACCENT}]Unknown example:[/] {key}")
+        theme.console.print("Available: " + ", ".join(sorted(EXAMPLES.keys())))
+        return None
+    if not as_json:
+        theme.console.print(
+            Panel(
+                f"[bold]{ex.title}[/bold]\n\n{ex.claim}\n\n[dim]{ex.history}[/dim]",
+                border_style=theme.ACCENT_SOFT,
+                expand=False,
+            )
+        )
+    with theme.status_spinner("searching for a counterexample..."):
+        state = check_with_form(ex.form, ex.claim, memory=memory or ProofMemory(),
+                                timeout=max(timeout, 30))
+    if as_json:
+        print(json.dumps(state.serialize_to_dict(), indent=2, ensure_ascii=False))
+    else:
+        _print_state(state)
+    if state.verdict == "counterexample_found":
+        with theme.status_spinner("performing the autopsy..."):
+            state = diagnose_failure(state, client=get_client())
+        theme.console.print(
+            f"[{theme.ACCENT}]Autopsy:[/] {state.diagnosis or 'no specific step implicated.'}"
+        )
+    _save_session(state)
+    return state
+
+
+def _handle_shell_style_input(
+    text: str,
+    state: Optional[ProofState],
+    memory: ProofMemory,
+) -> bool:
+    """Run shell-style commands typed into the REPL.
+
+    Without this, `breach check --example euler` typed into the chat is
+    interpreted as a *claim* to attack and comes back UNKNOWN.
+    """
+    raw = text.strip()
+    if not raw:
+        return False
+
+    cmd = raw
+    if cmd.lower().startswith("breach "):
+        cmd = cmd[len("breach ") :].strip()
+    lowered = cmd.lower()
+
+    if lowered in ("help", "--help", "-h", "?"):
+        theme.console.print(
+            "[dim]Inside the chat:[/] type a claim to attack it, or use "
+            "/web /challenge /export /examples /clear /quit.\n"
+            "You can also type shell-style commands here: "
+            "[bold]check \"<claim>\"[/], [bold]check --example euler[/], "
+            "[bold]examples[/], [bold]export html[/], [bold]web[/].[/dim]"
+        )
+        return True
+
+    if lowered in ("examples", "example", "list-examples", "gallery"):
+        _print_examples()
+        return True
+
+    if lowered in ("web", "--web"):
+        _launch_web(state)
+        return True
+
+    if lowered.startswith("export"):
+        parts = cmd.split()
+        fmt = parts[1] if len(parts) > 1 else ""
+        if state is None:
+            theme.console.print("[dim]Nothing to export yet.[/dim]")
+        else:
+            _export_and_report(state, [fmt] if fmt else ["md", "html", "txt"])
+        return True
+
+    if lowered.startswith("check"):
+        rest = cmd[len("check") :].strip()
+        if "--example" in rest or rest.startswith("-e "):
+            tail = rest.split("--example", 1)[-1] if "--example" in rest else rest[3:]
+            key = tail.strip().strip('"').strip("'").split()[0] if tail.strip() else ""
+            if key:
+                _run_example(key, memory=memory)
+            else:
+                theme.console.print("[dim]Usage: check --example <key>[/dim]")
+            return True
+        claim = rest.strip()
+        if claim.startswith('"') and claim.endswith('"') and len(claim) > 1:
+            claim = claim[1:-1]
+        elif claim.startswith("'") and claim.endswith("'") and len(claim) > 1:
+            claim = claim[1:-1]
+        if claim:
+            with theme.status_spinner("BREACH is thinking..."):
+                new_state = breach_check(claim, memory=memory, client=get_client())
+            _print_state(new_state)
+            _save_session(new_state)
+        else:
+            theme.console.print("[dim]Usage: check \"<claim>\"[/dim]")
+        return True
+
+    # a bare gallery key, e.g. "euler"
+    if raw.lower() in EXAMPLES:
+        theme.console.print(
+            f"[dim]Running the gallery example {raw.lower()!r} "
+            "(type /examples to list them).[/dim]"
+        )
+        _run_example(raw.lower(), memory=memory)
+        return True
+
+    return False
+
+
 @app.command()
 def check(
     claim: Optional[str] = typer.Argument(None, help="The claim to attack."),

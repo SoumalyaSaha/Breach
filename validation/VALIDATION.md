@@ -1,27 +1,12 @@
-# Breach Validation Corpus
+# miniF2F-curated validation corpus
 
 A small, curated benchmark used to validate Breach's claim-verification
 pipeline against real, externally-sourced mathematical statements — not
-only against problems we wrote ourselves.
-
-Machine-readable version: [`validation_corpus.json`](./validation_corpus.json)
-
-## Why this exists
-
-Any claim-checking tool is easy to validate against problems its own
-authors designed, because those problems tend to fit the tool's blind
-spots by construction. This corpus instead draws from **miniF2F**, the
-standard cross-system academic benchmark for automated/formal
-mathematical reasoning (used in research from OpenAI, DeepSeek, and
-others — [arXiv:2109.00110](https://arxiv.org/abs/2109.00110)), selecting
-entries that fall inside Breach's actual scope: bounded, mechanically
-decidable claims checkable by Z3/SymPy. miniF2F's full benchmark targets
-**open-ended formal proof construction** (filling in a Lean `sorry`),
-which is a different and currently much harder problem — the best
-published systems solve roughly a quarter of miniF2F at pass@1. Breach
-does not attempt that task; this corpus only draws the subset of miniF2F
-problems that match what Breach is actually built to do: falsification
-and bounded verification, not proof synthesis.
+only against problems we wrote ourselves. This corpus is **curated from
+miniF2F** (the standard cross-system academic benchmark for automated/formal
+mathematical reasoning — [arXiv:2109.00110](https://arxiv.org/abs/2109.00110)),
+selecting entries that fall inside Breach's actual scope: bounded,
+mechanically decidable claims checkable by Z3/SymPy.
 
 ## Summary
 

@@ -275,6 +275,25 @@ inside `cli.py` or `web.py`, that is a bug.
 
 ---
 
+## 8. miniF2F-curated validation corpus
+
+Breach is validated against an external, citable corpus — not only against
+problems we wrote ourselves. This corpus is **curated from miniF2F**, the
+standard cross-system academic benchmark for automated/formal mathematical
+reasoning (arXiv:2109.00110).
+
+- [`validation/VALIDATION.md`](validation/VALIDATION.md) — what the corpus
+  contains, what it deliberately does *not* claim, and the exact commands to
+  reproduce it (including the one case that was flaky, how it was root-caused
+  and how it was fixed).
+- [`validation/validation_corpus.json`](validation/validation_corpus.json) — the
+  machine-readable version (5 entries: 4 executable, 1 historical context).
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the translation-validation fix that made
+BVC-002 deterministic.
+
+---
+
 ## 8. Tests
 
 ```bash
@@ -285,37 +304,3 @@ The suite covers a true claim (no counterexample), a false claim (exact witness
 values checked arithmetically), an undecidable claim (scored unknown), every
 gallery example against its expected verdict, memory discipline (no
 overwrites), state serialisation, symbol shortcuts, and export.
-
----
-
-## 9. Demo video (4 minutes)
-
-| time | segment | what to show |
-|---|---|---|
-| 0:00 | cold open | "AI can write a proof that looks right and is wrong. Ours tries to break it." |
-| 0:25 | live CLI | `breach check "for every integer n between 1 and 40, n^2 + n + 41 is prime"` → counterexample `n = 40` |
-| 1:10 | live CLI | `breach chat`, state a claim, then `/web` → browser opens with the session loaded |
-| 2:10 | blackboard | challenge a step in the browser; the agent answers *that* objection |
-| 2:50 | export | click export, open the `.md` file on screen |
-| 3:15 | hard-case search | `breach search --example pythagorean` → show the scale readout and the honest comparison |
-| 3:45 | close | "trying to break your proof before someone else has to" |
-
-Recording notes: pre-test every claim string; a 30-second solver hang on camera
-is the single biggest demo-killer. The gallery entries are the safest claims
-because they resolve in milliseconds.
-
----
-
-## 10. Prior art (be ready for the judge question)
-
-The core mechanism — *LLM → symbolic translation → SMT/CAS → counterexample* —
-is **not new**. Known relatives: `lean4-skills`' `/disprove` (Lean, certified
-counterexamples), `Congruent` (function equivalence only), `ProofOfThought`
-(LLM + Z3), `neurocore-skill-math` (multi-backend toolkit), `MechGeo` (geometry
-only).
-
-Breach's genuine differences: the interactive blackboard challenge loop with
-retained history, the CLI + in-session `/web` + multi-format export in one
-tool, plain-language *scored* explanations of what "unknown" means, and
-cube-and-conquer with symmetry breaking applied to arbitrary user claims
-rather than a fixed benchmark.
