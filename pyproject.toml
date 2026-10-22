@@ -2,7 +2,14 @@
 name = "breach"
 version = "0.1.0"
 description = "Breach — an adversarial math-checking agent that tries to break your proof."
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
 dependencies = [
     "typer>=0.12",
     "rich>=13.7",
@@ -16,6 +23,11 @@ dependencies = [
     "groq>=0.11",
     "requests>=2.32",
 ]
+
+[project.urls]
+Homepage = "https://github.com/SoumalyaSaha/Breach"
+Repository = "https://github.com/SoumalyaSaha/Breach"
+Issues = "https://github.com/SoumalyaSaha/Breach/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.2"]

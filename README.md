@@ -9,7 +9,7 @@ not try to prove it true — it tries to **falsify** it, using real solvers (Z3,
 SymPy) to hunt for a counterexample, and it tells you honestly when it cannot
 resolve something.
 
-**Repository:** canonical `beaskt/Breach` · published mirror `SoumalyaSaha/Breach`
+**Repository:** https://github.com/SoumalyaSaha/Breach
 
 ```
    ┌───────────┐   natural language    ┌────────────┐   structured form   ┌──────────┐
@@ -134,7 +134,7 @@ breach chat
 ### From scratch
 
 ```bash
-cd breach
+git clone https://github.com/SoumalyaSaha/Breach.git && cd Breach
 python -m venv .venv
 # Windows:      .venv\Scripts\activate
 # macOS/Linux:  source .venv/bin/activate
@@ -308,3 +308,23 @@ The suite covers a true claim (no counterexample), a false claim (exact witness
 values checked arithmetically), an undecidable claim (scored unknown), every
 gallery example against its expected verdict, memory discipline (no
 overwrites), state serialisation, symbol shortcuts, and export.
+
+---
+
+## Acknowledgements
+
+Breach was built with the help of AI coding tools — chiefly **OpenCode**
+(agentic coding in the terminal) and **Claude** (Anthropic) — used exclusively
+as research assistants while designing and implementing this project: exploring
+solver encodings, drafting the translation prompt, and writing the code.
+
+Every mathematical claim, solver verdict, search certificate and published
+number in this repository was produced by **running the code** — Z3, SymPy and
+the validation corpus — not by taking a model's word for it. Where the tools
+were unsure, Breach says so instead of guessing.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
+
+The mathematics, of course, belongs to the mathematicians.
