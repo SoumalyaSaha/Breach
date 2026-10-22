@@ -158,6 +158,50 @@ def _push_state(state: Optional[ProofState]) -> None:
         st.session_state.disk_mtime = _file_mtime()
 
 
+def _verdict_message(state) -> str:
+    """The agent's answer to a checked claim, in chat form."""
+    if state is None:
+        return ""
+    if state.verdict == "counterexample_found":
+        witness = ", ".join(f"{k} = {v}" for k, v in (state.counterexample or {}).items())
+        head = "**⚠️ Counterexample found.**"
+        body = f"Claim: _{state.claim}_\n\n{head}\n\n```\n{witness}\n```" if witness else head
+        if state.diagnosis:
+            body += f"\n\n**Autopsy.** {state.diagnosis}"
+        return body
+    if state.verdict == "no_counterexample_in_bound":
+        return (
+            "**✅ No counterexample found in the searched bound.**\n\n"
+            f"Claim: _{state.claim}_\n\n"
+            "No assignment inside the searched bound breaks the claim. "
+            "That is the absence of a counterexample in the bound — not a proof of truth."
+        )
+    info = state.unknown_info
+    detail = state.unknown_reason or "The solver could not decide it."
+    extra = ""
+    if info:
+        extra = f"\n\n_classification: {info.kind} (confidence {info.confidence:.0%})_"
+        if info.remedy:
+            extra += f"\n\n_what would help: {info.remedy}_"
+    return f"**❓ Unknown.**\n\nClaim: _{state.claim}_\n\n{detail}{extra}"
+
+
+def _challenge_message(state, step_id: int) -> str:
+    """The agent's answer to a challenge, in chat form."""
+    if state is None:
+        return ""
+    step = state.get_step(int(step_id))
+    if step is None:
+        return f"**Step {step_id}.** (that step is not in the current proof state)"
+    body = step.agent_response or "The agent did not return an answer for this objection."
+    text = f"**Breach — step {step_id}.** {body}"
+    if step.missing_assumption:
+        text += f"\n\n**Missing assumption.** `{step.missing_assumption}`"
+    if step.implicated:
+        text += "\n\n**⚠ This step is implicated** — the counterexample breaks it."
+    return text
+
+
 def _render_state(state: Optional[ProofState]) -> None:
     if state is None:
         st.info("No claim under attack yet.")
@@ -323,6 +367,11 @@ with tab_chat:
                     if state.verdict == "counterexample_found":
                         state = diagnose_failure(state, client=get_client())
                 _push_state(state)
+                # the agent's answer goes into the transcript too, otherwise
+                # the chat shows only the user's half of the conversation
+                st.session_state.messages.append(
+                    {"role": "breach", "content": _verdict_message(state)}
+                )
                 # clear the box by forcing a new widget instance
                 st.session_state.chat_input_version += 1
                 st.rerun()
@@ -349,6 +398,11 @@ with tab_chat:
             _push_state(state)
             st.session_state.messages.append(
                 {"role": "user", "content": f"Challenge to step {step_id}: {objection}"}
+            )
+            # ...and the agent's answer to THAT objection, so the transcript
+            # shows the exchange and not just the question
+            st.session_state.messages.append(
+                {"role": "breach", "content": _challenge_message(state, int(step_id))}
             )
             st.session_state.show_challenge = False
             st.rerun()

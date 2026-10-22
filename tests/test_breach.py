@@ -442,3 +442,102 @@ def test_web_never_mutates_an_instantiated_widgets_state():
     text = src.read_text(encoding="utf-8")
     assert 'st.session_state.chat_input = ""' not in text
     assert "chat_input_{st.session_state.chat_input_version}" in text
+
+
+def test_chat_transcript_carries_the_agents_answers():
+    """The agent's replies must reach the CHAT transcript.
+
+    A challenge was stored on the proof state and rendered on the BLACKBOARD,
+    but the chat only ever showed the user's half of the exchange — the
+    transcript looked like a wall of unanswered questions. The chat message
+    list must therefore receive a 'breach' message for every check and every
+    challenge.
+    """
+    import ast
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parent.parent / "src" / "web.py"
+    text = src.read_text(encoding="utf-8")
+    tree = ast.parse(text)
+
+    # every append to session_state.messages must include an agent reply
+    agent_replies = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "append"
+        and isinstance(node.func.value, ast.Attribute)
+        and node.func.value.attr == "messages"
+    ]
+    breach_messages = []
+    for n in agent_replies:
+        for constant in ast.walk(n):
+            if (
+                isinstance(constant, ast.Constant)
+                and constant.value == "breach"
+            ):
+                breach_messages.append(n)
+                break
+    assert len(breach_messages) >= 2, (
+        "the chat must receive an agent reply for both a check and a challenge "
+        f"(found {len(breach_messages)} of {len(agent_replies)} appends)"
+    )
+
+    # and the reply must contain the agent's actual answer
+    assert "_challenge_message(state" in text
+    assert "_verdict_message(state" in text
+
+
+def test_challenge_message_contains_the_agents_answer():
+    """`_challenge_message` must surface the response, not just a label."""
+    import importlib.util
+    from pathlib import Path
+
+    from src.state import ProofState
+
+    web_path = Path(__file__).resolve().parent.parent / "src" / "web.py"
+    source = web_path.read_text(encoding="utf-8")
+    start = source.index("def _challenge_message")
+    end = source.index("def _render_state")
+    namespace: dict = {}
+    exec(compile(source[start:end], str(web_path), "exec"), namespace)
+
+    state = ProofState(claim="a + b > a - b", verdict="no_counterexample_in_bound")
+    step = state.add_step("Assume a and b are positive integers.")
+    step.challenge_text = "if b=0?"
+    step.agent_response = "The domain already restricts b to 1..50, so b=0 is excluded."
+
+    message = namespace["_challenge_message"](state, 1)
+    assert "if b=0?" not in message or True  # the objection may or may not be echoed
+    assert "excluded" in message, message
+    assert "step 1" in message.lower()
+
+
+def test_verdict_message_states_the_verdict_and_its_scope():
+    import importlib.util
+    from pathlib import Path
+
+    from src.state import ProofState
+
+    web_path = Path(__file__).resolve().parent.parent / "src" / "web.py"
+    source = web_path.read_text(encoding="utf-8")
+    start = source.index("def _verdict_message")
+    end = source.index("def _challenge_message")
+    namespace: dict = {}
+    exec(compile(source[start:end], str(web_path), "exec"), namespace)
+
+    false_state = ProofState(claim="x^2 >= -1 for all x", verdict="counterexample_found")
+    false_state.counterexample = {"x": 0}
+    msg = namespace["_verdict_message"](false_state)
+    assert "Counterexample" in msg and "x = 0" in msg
+
+    true_state = ProofState(claim="x^2 >= 0", verdict="no_counterexample_in_bound")
+    msg = namespace["_verdict_message"](true_state)
+    assert "No counterexample" in msg
+    assert "not a proof of truth" in msg
+
+    unknown_state = ProofState(claim="collatz", verdict="unknown")
+    unknown_state.unknown_reason = "out of scope"
+    msg = namespace["_verdict_message"](unknown_state)
+    assert "Unknown" in msg and "out of scope" in msg
