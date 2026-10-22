@@ -6,6 +6,10 @@ secondaryBackgroundColor = "#fdf3f0"
 textColor = "#1c1c1c"
 font = "monospace"
 
+[client]
+# hide the developer toolbar (the Deploy / Rerun / Clear-cache buttons)
+toolbarMode = "viewer"
+
 [server]
 headless = true
 port = 8501

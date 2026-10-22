@@ -86,6 +86,14 @@ def _file_mtime() -> float:
 # ---------------------------------------------------------------------------
 st.set_page_config(page_title="Breach", page_icon="🕳️", layout="wide")
 
+# Hide Streamlit's developer toolbar (Deploy / Rerun / Clear cache). The
+# Deploy button is Streamlit's own publisher — Breach is a local tool, and
+# we do not want a stray "publish this app" button in the demo.
+try:
+    st.set_option("client.toolbarMode", "viewer")
+except Exception:  # pragma: no cover - older/newer Streamlit
+    pass
+
 st.markdown(
     """
     <style>
