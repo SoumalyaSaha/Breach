@@ -378,3 +378,67 @@ def test_web_script_has_no_undefined_module_level_names():
     text = src.read_text(encoding="utf-8")
     assert "from src.vision import transcribe_canvas" in text
     assert "def _canvas_png_bytes" not in text
+
+
+def test_web_never_mutates_an_instantiated_widgets_state():
+    """Assigning to a widget's session-state key *after* the widget was created
+    raises `StreamlitWidgetAlreadyInstantiatedError`.
+
+    This shipped as a crash on chat submit: `st.session_state.chat_input = ""`
+    after `st.text_input(key="chat_input")`. The chat input is now versioned
+    (`chat_input_<n>`) and the counter is bumped to force a fresh widget
+    instead of mutating the old one.
+    """
+    import ast
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parent.parent / "src" / "web.py"
+    tree = ast.parse(src.read_text(encoding="utf-8"))
+
+    widget_keys: dict[str, int] = {}       # key -> line where it is created
+    assignments: list[tuple[str, int]] = []  # (name, line) of session_state writes
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            if node.func.attr in {
+                "text_input",
+                "text_area",
+                "selectbox",
+                "multiselect",
+                "slider",
+                "number_input",
+                "checkbox",
+                "button",
+                "form_submit_button",
+            }:
+                for kw in node.keywords:
+                    if (
+                        kw.arg == "key"
+                        and isinstance(kw.value, ast.Constant)
+                        and isinstance(kw.value.value, str)
+                    ):
+                        widget_keys[kw.value.value] = node.lineno
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                # st.session_state.<name> = ...
+                if (
+                    isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Attribute)
+                    and target.value.attr == "session_state"
+                ):
+                    assignments.append((target.attr, node.lineno))
+
+    offenders = [
+        (name, line, widget_keys[name])
+        for name, line in assignments
+        if name in widget_keys and line > widget_keys[name]
+    ]
+    assert not offenders, (
+        "web.py assigns to a widget key after the widget was created "
+        f"(StreamlitWidgetAlreadyInstantiatedError): {offenders}"
+    )
+
+    # the chat input must use the versioned-key pattern
+    text = src.read_text(encoding="utf-8")
+    assert 'st.session_state.chat_input = ""' not in text
+    assert "chat_input_{st.session_state.chat_input_version}" in text

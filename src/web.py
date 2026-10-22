@@ -126,10 +126,15 @@ def _init_state() -> None:
         st.session_state.messages = []
         st.session_state.disk_mtime = _file_mtime()
         st.session_state.transcription = ""
+        st.session_state.transcription_field = ""
+        # version counter for the chat input widget (see the widget below)
+        st.session_state.chat_input_version = 0
         if loaded is not None:
             st.session_state.messages.append(
                 {"role": "breach", "content": f"Session restored: **{loaded.claim}**"}
             )
+    else:
+        st.session_state.setdefault("chat_input_version", 0)
 
 
 _init_state()
@@ -245,6 +250,9 @@ with tab_bb:
                     text = transcribe_canvas(canvas)
                     if text:
                         st.session_state.transcription = text
+                        # safe: the text_area widget is created further down
+                        # in this same run, so its key is not instantiated yet
+                        st.session_state.transcription_field = text
                     else:
                         st.warning(
                             "The canvas has no drawing yet (or no image data was "
@@ -256,7 +264,6 @@ with tab_bb:
         st.text_area(
             "Transcription (edit if needed, then check)",
             key="transcription_field",
-            value=st.session_state.get("transcription", ""),
             height=140,
         )
 
@@ -288,7 +295,11 @@ with tab_chat:
 
     text = st.text_input(
         "Your claim or objection",
-        key="chat_input",
+        # The key carries a version counter: after sending we bump the
+        # counter so Streamlit builds a *fresh*, empty widget. Assigning to
+        # st.session_state["chat_input"] after the widget exists raises
+        # StreamlitWidgetAlreadyInstantiatedError.
+        key=f"chat_input_{st.session_state.chat_input_version}",
         placeholder="e.g. for all integers n, n^2 >= 0   (type 'pi' and press space)",
     )
     preview = find_completion(text) if text else None
@@ -312,7 +323,8 @@ with tab_chat:
                     if state.verdict == "counterexample_found":
                         state = diagnose_failure(state, client=get_client())
                 _push_state(state)
-                st.session_state.chat_input = ""
+                # clear the box by forcing a new widget instance
+                st.session_state.chat_input_version += 1
                 st.rerun()
     with c2:
         if st.button("🎯 Challenge a step"):
@@ -322,8 +334,12 @@ with tab_chat:
         state = st.session_state.proof_state
         with st.form("challenge_form"):
             step_ids = [s.id for s in (state.steps if state else [])]
-            step_id = st.selectbox("Step", step_ids or [1])
-            objection = st.text_input("Your objection (e.g. 'what if a = 0?')")
+            # explicit keys: a form widget without a key is wiped on every
+            # rerun, which loses what the user typed
+            step_id = st.selectbox("Step", step_ids or [1], key="challenge_step_id")
+            objection = st.text_input(
+                "Your objection (e.g. 'what if a = 0?')", key="challenge_objection"
+            )
             go = st.form_submit_button("Challenge it")
         if go and objection:
             with st.spinner("answering that specific objection..."):
