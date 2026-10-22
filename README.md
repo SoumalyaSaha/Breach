@@ -305,6 +305,8 @@ breaks — here is the next counterexample").
 
 [![Architecture diagram of soumalyasaha/breach](https://gitdiagram.com/soumalyasaha/breach/diagram.png)](https://gitdiagram.com/soumalyasaha/breach?utm_source=readme&utm_medium=picture)
 
+_A copy of this diagram is committed at [`docs/diagram.png`](docs/diagram.png) so it still renders if gitdiagram.com is unreachable._
+
 ```
 src/
   state.py         ProofState / ProofStep / UnknownInfo  (the shared data model)
