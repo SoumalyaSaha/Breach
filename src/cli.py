@@ -144,6 +144,54 @@ def _print_state(state: ProofState) -> None:
         theme.console.print(table)
 
 
+def _export_and_report(state: ProofState, formats: list[str]) -> list[str]:
+    """Export the session and make the file easy to get hold of.
+
+    - every requested format is written to `outputs/`
+    - the .html file is opened in the default browser (so it can be saved
+      straight from the browser, or printed to PDF)
+    - the path of the HTML report is copied to the clipboard, ready to paste
+      into Explorer, a download bar or a chat window
+    """
+    from .clipboard import copy_to_clipboard
+
+    paths: list[str] = []
+    for fmt in formats:
+        try:
+            paths.append(export_proof(state, fmt))
+        except ValueError as exc:
+            theme.err_console.print(str(exc))
+        except Exception as exc:  # noqa: BLE001
+            theme.err_console.print(f"export failed: {exc}")
+
+    if not paths:
+        return []
+
+    folder = os.path.dirname(paths[0])
+    theme.console.print(f"📁 [bold]{len(paths)} file(s) written to {folder}[/bold]")
+    for path in paths:
+        theme.console.print(f"   • [bold]{os.path.basename(path)}[/bold]")
+
+    html = next((p for p in paths if p.lower().endswith(".html")), None)
+    if html:
+        try:
+            webbrowser.open(html)
+            theme.console.print(
+                "[dim]Opened the HTML report in your browser — Ctrl+S to save it, "
+                "or Ctrl+P to print it to PDF.[/dim]"
+            )
+        except Exception:
+            pass
+
+    # the clipboard gets the most useful file: the HTML report if there is one
+    primary = html or paths[0]
+    if copy_to_clipboard(primary):
+        theme.console.print(f"📋 Copied to clipboard: [dim]{primary}[/dim]")
+    else:
+        theme.console.print("[dim]Tip: copy the path above into Explorer to open it.[/dim]")
+    return paths
+
+
 def _expand_symbols(text: str) -> str:
     """Apply a symbol shortcut at the end of the input, announcing it."""
     if find_completion(text):
@@ -260,12 +308,16 @@ def chat() -> None:
                 _launch_web(state)
                 continue
             if cmd == "/export":
-                fmt = (rest or "md").split()[0]
+                fmt = (rest or "").split()[0] if rest else ""
                 if state is None:
                     theme.console.print("[dim]Nothing to export yet.[/dim]")
                     continue
-                path = export_proof(state, fmt)
-                theme.console.print(f"📄 Exported to [bold]{path}[/bold]")
+                if fmt:
+                    _export_and_report(state, [fmt])
+                else:
+                    # no format given: write all three — the HTML report is
+                    # the one you can open (and save) straight away
+                    _export_and_report(state, ["md", "html", "txt"])
                 continue
             if cmd == "/examples":
                 _print_examples()
@@ -348,19 +400,19 @@ def challenge(
 
 @app.command()
 def export(
-    format: str = typer.Argument("md", help="md | html | txt"),
+    format: str = typer.Argument(
+        "", help="md | html | txt — leave empty for all three."
+    ),
 ) -> None:
-    """Export the current session to a file."""
+    """Export the current session to a file (and open the HTML report)."""
     state = _load_session()
     if state is None:
         theme.err_console.print("No saved session found. Run `breach check \"...\"` first.")
         raise typer.Exit(code=1)
-    try:
-        path = export_proof(state, format)
-    except ValueError as exc:
-        theme.err_console.print(str(exc))
+    formats = [format] if format else ["md", "html", "txt"]
+    paths = _export_and_report(state, formats)
+    if not paths:
         raise typer.Exit(code=1)
-    theme.console.print(f"📄 Exported to [bold]{path}[/bold]")
 
 
 @app.command()

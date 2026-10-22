@@ -25,7 +25,7 @@ from src import ui_theme as theme  # noqa: E402
 from src.argue import apply_patch, challenge_step, diagnose_failure, offer_patch  # noqa: E402
 from src.citations import attach_citations  # noqa: E402
 from src.engine import breach_check  # noqa: E402
-from src.export import export_proof  # noqa: E402
+from src.export import export_proof, render_proof, suggest_filename  # noqa: E402
 from src.llm_client import get_client  # noqa: E402
 from src.memory import ProofMemory  # noqa: E402
 from src.paths import SESSION_FILE as DEFAULT_SESSION  # noqa: E402
@@ -427,13 +427,27 @@ with tab_side:
         st.info("Run a check first.")
     else:
         st.markdown("**Export this session**")
-        fmt = st.selectbox("format", ["md", "html", "txt"])
-        if st.button("📄 Export"):
+        fmt = st.selectbox("format", ["html", "txt", "md"], index=0)
+        # a direct download: rendered in memory, nothing touches the disk
+        try:
+            content = render_proof(state, fmt)
+            mime = {
+                "html": "text/html",
+                "txt": "text/plain",
+                "md": "text/markdown",
+            }[fmt]
+            st.download_button(
+                f"⬇ Download .{fmt}",
+                content,
+                file_name=suggest_filename(state, fmt),
+                mime=mime,
+            )
+        except Exception as exc:  # noqa: BLE001
+            st.error(f"Could not render the report: {exc}")
+
+        if st.button("💾 Save to outputs/"):
             path = export_proof(state, fmt)
             st.success(f"Saved to {path}")
-            with open(path, "r", encoding="utf-8") as fh:
-                content = fh.read()
-            st.download_button("Download", content, file_name=os.path.basename(path))
 
         st.divider()
         st.markdown("**Related work**")

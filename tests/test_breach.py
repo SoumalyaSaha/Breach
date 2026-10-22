@@ -240,6 +240,35 @@ def test_export_formats(tmp_path, fmt):
     assert "x^2 >= 0" in content
 
 
+def test_render_proof_produces_content_without_touching_the_disk(tmp_path):
+    from src.export import render_proof
+
+    state = ProofState(claim="x^2 >= 0", verdict="no_counterexample_in_bound")
+    html = render_proof(state, "html")
+    assert "<html" in html and "x^2 >= 0" in html
+    assert not list(tmp_path.iterdir()), "rendering must not write files"
+
+    txt = render_proof(state, "txt")
+    assert "BREACH REPORT" in txt
+
+
+def test_suggested_filenames_are_short_and_distinct():
+    from src.export import suggest_filename
+
+    a = suggest_filename(ProofState(claim="a" * 200), "html")
+    b = suggest_filename(ProofState(claim="b" * 200), "html")
+    assert a.endswith(".html") and b.endswith(".html")
+    assert len(a) < 70, f"file name too long for a terminal line: {a}"
+    assert a != b
+
+
+def test_clipboard_helper_never_raises():
+    from src.clipboard import copy_to_clipboard
+
+    assert copy_to_clipboard("") is False
+    copy_to_clipboard("breach clipboard check")  # may fail headless; must not raise
+
+
 def test_export_includes_the_search_certificate(tmp_path):
     from src.export import export_proof
 

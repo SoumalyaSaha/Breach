@@ -7,6 +7,7 @@ search certificate (when one was used).
 
 from __future__ import annotations
 
+import hashlib
 import os
 import time
 from typing import Any, Optional
@@ -255,6 +256,23 @@ def _context(state: ProofState) -> dict[str, Any]:
     }
 
 
+def suggest_filename(state: ProofState, format: str = "md") -> str:
+    """The file name Breach uses for this session and format."""
+    fmt = (format or "md").lower().lstrip(".")
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    slug = "".join(ch if ch.isalnum() else "-" for ch in state.claim[:28]).strip("-").lower()
+    digest = hashlib.sha256(state.claim.encode("utf-8")).hexdigest()[:6]
+    return f"breach-{slug or 'report'}-{digest}-{stamp}{SUFFIX.get(fmt, '.md')}"
+
+
+def render_proof(state: ProofState, format: str = "md") -> str:
+    """Render the report as text (no file written)."""
+    fmt = (format or "md").lower().lstrip(".")
+    if fmt not in TEMPLATES:
+        raise ValueError(f"unsupported export format: {format!r} (use md, html or txt)")
+    return Template(TEMPLATES[fmt]).render(**_context(state))
+
+
 def export_proof(
     state: ProofState,
     format: str = "md",
@@ -266,11 +284,9 @@ def export_proof(
         raise ValueError(f"unsupported export format: {format!r} (use md, html or txt)")
     out_dir = output_dir or OUTPUT_DIR
     os.makedirs(out_dir, exist_ok=True)
-    stamp = time.strftime("%Y%m%d-%H%M%S")
-    safe_claim = "".join(ch if ch.isalnum() else "-" for ch in state.claim[:48]).strip("-").lower()
-    filename = f"breach-{safe_claim or 'report'}-{stamp}{SUFFIX[fmt]}"
+    filename = suggest_filename(state, fmt)
     path = os.path.join(out_dir, filename)
-    rendered = Template(TEMPLATES[fmt]).render(**_context(state))
+    rendered = render_proof(state, fmt)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(rendered)
     return os.path.abspath(path)
