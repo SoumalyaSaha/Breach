@@ -77,6 +77,26 @@ class LLMError(RuntimeError):
     """A provider was reachable but failed."""
 
 
+def _secret(name: str, default: str = "") -> str:
+    """Read a setting from the environment, falling back to Streamlit secrets.
+
+    On Streamlit Community Cloud the API keys are entered in the app's
+    *Settings -> Secrets* panel rather than a .env file, so we look there too.
+    """
+    value = os.getenv(name)
+    if value:
+        return value
+    try:  # only meaningful inside a Streamlit runtime
+        import streamlit as st
+
+        secret = st.secrets.get(name)  # type: ignore[attr-defined]
+        if secret:
+            return str(secret)
+    except Exception:
+        pass
+    return default
+
+
 # ---------------------------------------------------------------------------
 # Groq key rotation
 # ---------------------------------------------------------------------------
@@ -92,10 +112,10 @@ class GroqKeyRotator:
     def __init__(self, keys: Optional[list[str]] = None) -> None:
         if keys is None:
             raw = [
-                os.getenv("GROQ_API_KEY_1"),
-                os.getenv("GROQ_API_KEY_2"),
-                os.getenv("GROQ_API_KEY_3"),
-                os.getenv("GROQ_API_KEY_4"),
+                _secret("GROQ_API_KEY_1"),
+                _secret("GROQ_API_KEY_2"),
+                _secret("GROQ_API_KEY_3"),
+                _secret("GROQ_API_KEY_4"),
             ]
             keys = [k for k in raw if k]
         self.keys: list[str] = list(keys)
@@ -157,10 +177,10 @@ class GoogleKeyRotator:
     def __init__(self, keys: Optional[list[str]] = None, timeout: float = DEFAULT_TIMEOUT) -> None:
         if keys is None:
             raw = [
-                os.getenv("GOOGLE_API_KEY"),
-                os.getenv("GOOGLE_API_KEY_2"),
-                os.getenv("GOOGLE_API_KEY_3"),
-                os.getenv("GOOGLE_API_KEY_4"),
+                _secret("GOOGLE_API_KEY"),
+                _secret("GOOGLE_API_KEY_2"),
+                _secret("GOOGLE_API_KEY_3"),
+                _secret("GOOGLE_API_KEY_4"),
             ]
             keys = [k for k in raw if k]
         self.keys: list[str] = list(keys)
