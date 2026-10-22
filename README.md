@@ -1,6 +1,6 @@
+# BREACH — adversarial math checking agent
 
 ![BREACH CLI screenshot](docs/breach-cli.png)
-# Breach
 
 > *"LLMs can hallucinate a proof that looks right. Breach's job is to try to **break** your proof, not confirm it."*
 
