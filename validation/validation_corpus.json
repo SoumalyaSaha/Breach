@@ -1,0 +1,87 @@
+{
+  "dataset_name": "breach-validation-corpus",
+  "version": "1.0",
+  "description": "A small curated benchmark for validating Breach's claim-verification pipeline against real, externally-sourced mathematical statements rather than only self-authored test cases.",
+  "sources": [
+    {
+      "name": "miniF2F",
+      "citation": "Zheng, Han, Polu. 'miniF2F: a cross-system benchmark for formal Olympiad-level mathematics.' arXiv:2109.00110",
+      "url": "https://github.com/openai/miniF2F"
+    },
+    {
+      "name": "Historical false conjectures",
+      "citation": "Used for narrative/context entries only; not run as executable test cases unless noted."
+    }
+  ],
+  "scope_note": "Breach verifies bounded, mechanically-decidable claims via Z3/SymPy. Entries are selected from miniF2F specifically where they fall inside this scope (algebraic identities, bounded number theory), not from miniF2F's full formal-proof-construction split, which is out of scope by design (see README).",
+  "cases": [
+    {
+      "id": "BVC-001",
+      "name": "amc12_2000_p11",
+      "source": "miniF2F (arXiv:2109.00110, Table 4) / 2000 AMC 12 Problem 11",
+      "claim_nl": "for nonzero reals a and b, if a*b = a - b, then a/b + b/a - a*b = 2",
+      "command": "breach check \"for nonzero reals a and b, if a*b = a - b, then a/b + b/a - a*b = 2\"",
+      "ground_truth": "TRUE",
+      "ground_truth_method": "verified independently via SymPy symbolic simplification",
+      "expected_verdict": "no_counterexample_in_bound",
+      "category": "algebraic_identity",
+      "known_limitation": "Breach's current translator may encode this as a bounded numeric search (e.g. reals in [-10,10]) rather than recognizing it as symbolically provable via SymPy. The verdict is still correct; the proof strength is weaker than it could be. Tracked as a known improvement area."
+    },
+    {
+      "id": "BVC-002",
+      "name": "mathd_numbertheory_618",
+      "source": "miniF2F number theory split (HuggingFace AI-MO/minif2f_test)",
+      "claim_nl": "for positive integer n, let p(n) = n^2 - n + 41; if gcd(p(n), p(n+1)) > 1 then n >= 41",
+      "command": "breach check \"for positive integer n, let p(n) = n^2 - n + 41; if gcd(p(n), p(n+1)) > 1 then n >= 41\"",
+      "ground_truth": "TRUE",
+      "ground_truth_method": "first witness independently confirmed at n = 41",
+      "expected_verdict": "no_counterexample_in_bound",
+      "category": "number_theory_gcd",
+      "known_limitation": "Initial testing found this translation non-deterministic across repeated runs (sometimes unknown/translation_ambiguity, sometimes unknown/timeout, sometimes correct). Root cause: no validation/retry when the LLM-generated solver encoding fails to parse. Fixed by adding translation validation with automatic retry on parse failure (see CHANGELOG). Re-verified deterministic post-fix."
+    },
+    {
+      "id": "BVC-003",
+      "name": "mathd_algebra_487",
+      "source": "miniF2F algebra split (arXiv:2511.03108)",
+      "claim_nl": "for the two intersection points of y = x^2 and x + y = 1 (with a != c), the distance between them is sqrt(10)",
+      "command": "breach check \"if a^2 = b, a + b = 1, c^2 = d, c + d = 1, and a != c, then sqrt((a-c)^2 + (b-d)^2) = sqrt(10)\"",
+      "ground_truth": "TRUE",
+      "ground_truth_method": "verified independently: squared distance = 10 exactly",
+      "expected_verdict": "no_counterexample_in_bound",
+      "category": "algebraic_system",
+      "known_limitation": "Correct across all test runs; bound margin was tight in one encoding ([-2,2], against true roots at approx 0.618 and -1.618) \u2014 flagged for future tightening of default bounds."
+    },
+    {
+      "id": "BVC-004",
+      "name": "polya_conjecture_1919",
+    "source": "Historical reference only \u2014 not executed as a Breach test case",
+      "claim_nl": "The Polya conjecture (summatory Liouville function parity)",
+      "command": null,
+      "ground_truth": "FALSE (first counterexample at n = 906,150,257, found by C.B. Haselgrove, 1958)",
+      "ground_truth_method": "historical record",
+      "expected_verdict": "not_applicable",
+      "category": "historical_context",
+      "known_limitation": "Included for narrative/scale context only (illustrates the real-world scale of 'held true for decades, later falsified' claims). Breach has NOT found or verified this counterexample \u2014 it is roughly 4 orders of magnitude beyond laptop-scale search. Independently confirmed no counterexample exists below n = 200,000 within this project's own testing. Must not be represented as a Breach result."
+    },
+    {
+      "id": "BVC-005",
+      "name": "control_false_inequality",
+      "source": "Authored for this corpus as a control case, styled after miniF2F algebra entries",
+      "claim_nl": "for all positive integers a and b, a^2 + b^2 >= 2*a*b + 1",
+      "command": "breach check \"for all positive integers a and b, a^2 + b^2 >= 2*a*b + 1\"",
+      "ground_truth": "FALSE (violated whenever a = b)",
+      "ground_truth_method": "direct substitution, e.g. a=b=1 gives 2 >= 3, false",
+      "expected_verdict": "counterexample_found",
+      "category": "control_case",
+      "known_limitation": "None observed; stable across all test runs. Included to confirm the counterexample-finding path works correctly on a realistic-looking but false claim, not only on true claims."
+    }
+  ],
+  "results_summary": {
+    "runnable_cases": 4,
+    "context_only_cases": 1,
+    "passed_on_first_validation_pass": 3,
+    "fixed_after_initial_flakiness": 1,
+    "regressions_found": 0,
+    "notes": "BVC-002 was flaky on first pass (translation non-determinism); root-caused and fixed by adding encoding validation with retry-on-parse-failure. Re-verified deterministic after the fix. All other runnable cases passed consistently across repeated runs."
+  }
+}
