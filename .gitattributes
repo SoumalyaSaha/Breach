@@ -1,0 +1,4 @@
+# The validation corpus is published byte-for-byte as written; keep git from
+# rewriting its line endings.
+validation/VALIDATION.md          -text
+validation/validation_corpus.json  -text
