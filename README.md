@@ -17,7 +17,7 @@ resolve something.
                                                                       │ SAT / UNSAT / unknown
                                                                       ▼
    ┌───────────┐   counterexample,      ┌────────────┐
-   │  verdict  │ ◄──────────────────── │  solver    │  ← the LLM never decides anything
+   │  verdict  │ ◄────────────────────  │  solver    │  ← the LLM never decides anything
    └───────────┘   scope, honesty       └────────────┘
 ```
 
