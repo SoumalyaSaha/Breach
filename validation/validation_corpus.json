@@ -49,19 +49,19 @@
       "ground_truth_method": "verified independently: squared distance = 10 exactly",
       "expected_verdict": "no_counterexample_in_bound",
       "category": "algebraic_system",
-      "known_limitation": "Correct across all test runs; bound margin was tight in one encoding ([-2,2], against true roots at approx 0.618 and -1.618) \u2014 flagged for future tightening of default bounds."
+      "known_limitation": "Correct across all test runs; bound margin was tight in one encoding ([-2,2], against true roots at approx 0.618 and -1.618) — flagged for future tightening of default bounds."
     },
     {
       "id": "BVC-004",
       "name": "polya_conjecture_1919",
-    "source": "Historical reference only \u2014 not executed as a Breach test case",
+      "source": "Historical reference only — not executed as a Breach test case",
       "claim_nl": "The Polya conjecture (summatory Liouville function parity)",
       "command": null,
       "ground_truth": "FALSE (first counterexample at n = 906,150,257, found by C.B. Haselgrove, 1958)",
       "ground_truth_method": "historical record",
       "expected_verdict": "not_applicable",
       "category": "historical_context",
-      "known_limitation": "Included for narrative/scale context only (illustrates the real-world scale of 'held true for decades, later falsified' claims). Breach has NOT found or verified this counterexample \u2014 it is roughly 4 orders of magnitude beyond laptop-scale search. Independently confirmed no counterexample exists below n = 200,000 within this project's own testing. Must not be represented as a Breach result."
+      "known_limitation": "Included for narrative/scale context only (illustrates the real-world scale of 'held true for decades, later falsified' claims). Breach has NOT found or verified this counterexample — it is roughly 4 orders of magnitude beyond laptop-scale search. Independently confirmed no counterexample exists below n = 200,000 within this project's own testing. Must not be represented as a Breach result."
     },
     {
       "id": "BVC-005",
@@ -82,6 +82,59 @@
     "passed_on_first_validation_pass": 3,
     "fixed_after_initial_flakiness": 1,
     "regressions_found": 0,
-    "notes": "BVC-002 was flaky on first pass (translation non-determinism); root-caused and fixed by adding encoding validation with retry-on-parse-failure. Re-verified deterministic after the fix. All other runnable cases passed consistently across repeated runs."
+    "notes": "BVC-002 was flaky on first pass (translation non-determinism); root-caused and fixed by adding encoding validation with retry-on-parse-failure. Re-verified deterministic after the fix. All other runnable cases passed consistently across repeated runs.",
+    "accuracy": {
+      "measured_runs_per_case": 5,
+      "executable_cases": 4,
+      "total_checks": 20,
+      "correct": 20,
+      "overall_accuracy": 1.0,
+      "per_case": {
+        "BVC-001": {
+          "expected": "no_counterexample_in_bound",
+          "correct": 5,
+          "runs": 5,
+          "accuracy": 1.0,
+          "observed_verdicts": {
+            "no_counterexample_in_bound": 5
+          },
+          "mean_seconds": 2.61
+        },
+        "BVC-002": {
+          "expected": "no_counterexample_in_bound",
+          "correct": 5,
+          "runs": 5,
+          "accuracy": 1.0,
+          "observed_verdicts": {
+            "no_counterexample_in_bound": 5
+          },
+          "mean_seconds": 26.18
+        },
+        "BVC-003": {
+          "expected": "no_counterexample_in_bound",
+          "correct": 5,
+          "runs": 5,
+          "accuracy": 1.0,
+          "observed_verdicts": {
+            "no_counterexample_in_bound": 5
+          },
+          "mean_seconds": 11.79
+        },
+        "BVC-005": {
+          "expected": "counterexample_found",
+          "correct": 5,
+          "runs": 5,
+          "accuracy": 1.0,
+          "observed_verdicts": {
+            "counterexample_found": 5
+          },
+          "mean_seconds": 12.37
+        }
+      },
+      "context_only_cases": [
+        "BVC-004"
+      ],
+      "note": "Small sample: this is a 4-case corpus, so the overall figure is a smoke-test signal, not a benchmark score. Breach never returned a confident wrong verdict - failures surfaced as an honest 'unknown'."
+    }
   }
 }

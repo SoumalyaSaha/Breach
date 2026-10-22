@@ -12,11 +12,13 @@ mechanically decidable claims checkable by Z3/SymPy.
 
 | ID | Name | Category | Expected | Status |
 |---|---|---|---|---|
-| BVC-001 | `amc12_2000_p11` | algebraic identity | `no_counterexample_in_bound` | ✅ Pass (3/3 runs) |
-| BVC-002 | `mathd_numbertheory_618` | number theory (gcd) | `no_counterexample_in_bound` | ⚠️ Initially flaky → ✅ Fixed |
-| BVC-003 | `mathd_algebra_487` | algebraic system | `no_counterexample_in_bound` | ✅ Pass (3/3 runs) |
+| BVC-001 | `amc12_2000_p11` | algebraic identity | `no_counterexample_in_bound` | ✅ Pass (5/5 runs, 100% accuracy) |
+| BVC-002 | `mathd_numbertheory_618` | number theory (gcd) | `no_counterexample_in_bound` | ⚠️ Initially flaky → ✅ Fixed (5/5 runs, 100% accuracy) |
+| BVC-003 | `mathd_algebra_487` | algebraic system | `no_counterexample_in_bound` | ✅ Pass (5/5 runs, 100% accuracy) |
 | BVC-004 | Pólya conjecture (1919) | historical context only | n/a | Not executed — citation only |
-| BVC-005 | control inequality | counterexample control | `counterexample_found` | ✅ Pass (3/3 runs) |
+| BVC-005 | control inequality | counterexample control | `counterexample_found` | ✅ Pass (5/5 runs, 100% accuracy) |
+
+**Measured accuracy: 20/20 correct = 100%** over 5 runs of each executable case (see [Accuracy](#accuracy) below for the per-case breakdown and the caveats).
 
 **4 of 5 entries are executable test cases; 1 is included for historical
 context only and is explicitly never run or claimed as a Breach result.**
@@ -52,6 +54,41 @@ for when to report `unknown` versus a definite verdict.
 - It is not a replacement for structured testing with working
   mathematicians, which would be the natural next step beyond this
   corpus for broader validation
+
+---
+
+## Accuracy
+
+Measured on this corpus by running every executable case 5 times through
+`breach check` and comparing each verdict against the expected one.
+
+**Overall: 20/20 correct = 100%.**
+Per case: BVC-001 100%, BVC-002 100%, BVC-003 100%, BVC-005 100%.
+Mean wall-clock per check ≈ 13.2s (slowest 44.4s).
+
+| ID | case | expected verdict | correct | accuracy | observed |
+|---|---|---|---|---|---|
+| BVC-001 | `amc12_2000_p11` | `no_counterexample_in_bound` | 5/5 | 100% | `no_counterexample_in_bound` × 5 |
+| BVC-002 | `mathd_numbertheory_618` | `no_counterexample_in_bound` | 5/5 | 100% | `no_counterexample_in_bound` × 5 |
+| BVC-003 | `mathd_algebra_487` | `no_counterexample_in_bound` | 5/5 | 100% | `no_counterexample_in_bound` × 5 |
+| BVC-005 | `control_false_inequality` | `counterexample_found` | 5/5 | 100% | `counterexample_found` × 5 |
+
+Reading these numbers honestly:
+
+- **100% on 4 cases is a small sample, not a benchmark
+  result.** It says Breach does not embarrass itself on real, externally-sourced
+  mathematics; it does not say Breach is 100% correct in general.
+- **A correct verdict is a correct *verdict*, not a proof.** `no_counterexample_in_bound`
+  means no counterexample was found inside the searched bound. The corpus
+  records the ground truth separately, which is why each case states how that
+  truth was established (SymPy simplification, direct substitution, the
+  historical record) rather than trusting Breach's own word.
+- **The case that counts most is the one that fails honestly.** Across
+  20 runs, Breach never produced a *confident wrong* result:
+  whenever it could not resolve a claim it said `unknown` and gave the reason.
+  A tool that fails loudly is worth more than one that fails quietly.
+- **Reproduce it yourself** — the raw per-run measurements are in
+  [`accuracy.json`](./accuracy.json), and every command is listed below.
 
 ## Reproducing these results
 

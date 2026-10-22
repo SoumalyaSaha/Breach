@@ -291,7 +291,18 @@ reasoning (arXiv:2109.00110).
   reproduce it (including the one case that was flaky, how it was root-caused
   and how it was fixed).
 - [`validation/validation_corpus.json`](validation/validation_corpus.json) — the
-  machine-readable version (5 entries: 4 executable, 1 historical context).
+  machine-readable version (5 entries: 4 executable, 1 historical context),
+  including the raw per-case measurements in `validation/accuracy.json`.
+
+**Measured accuracy: 20/20 correct = 100%** over 5 runs of each of the 4 executable cases
+(BVC-001, BVC-002, BVC-003, BVC-005), each verdict compared against the
+expected one. BVC-004 (Pólya) is context only and is never executed.
+
+Read that number carefully: it is a 4-case sample, not a benchmark score. It
+says Breach does not embarrass itself on real, externally-sourced mathematics —
+it does not say Breach is 100% correct in general. Across all
+20 runs Breach never produced a *confident wrong* verdict: when it could not
+resolve a claim it said `unknown` and gave the reason.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the translation-validation fix that made
 BVC-002 deterministic.

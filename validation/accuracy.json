@@ -1,0 +1,75 @@
+{
+  "runs_per_case": 5,
+  "overall": 1.0,
+  "cases": [
+    {
+      "id": "BVC-001",
+      "name": "amc12_2000_p11",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 5
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 5,
+      "runs": 5,
+      "mean_seconds": 2.61,
+      "max_seconds": 3.78
+    },
+    {
+      "id": "BVC-002",
+      "name": "mathd_numbertheory_618",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 5
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 5,
+      "runs": 5,
+      "mean_seconds": 26.18,
+      "max_seconds": 44.44
+    },
+    {
+      "id": "BVC-003",
+      "name": "mathd_algebra_487",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 5
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 5,
+      "runs": 5,
+      "mean_seconds": 11.79,
+      "max_seconds": 18.64
+    },
+    {
+      "id": "BVC-004",
+      "name": "polya_conjecture_1919",
+      "runnable": false,
+      "expected": "not_applicable",
+      "verdicts": {},
+      "accuracy": null,
+      "note": "context only - never executed"
+    },
+    {
+      "id": "BVC-005",
+      "name": "control_false_inequality",
+      "runnable": true,
+      "expected": "counterexample_found",
+      "verdicts": {
+        "counterexample_found": 5
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 5,
+      "runs": 5,
+      "mean_seconds": 12.37,
+      "max_seconds": 18.08
+    }
+  ]
+}
