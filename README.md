@@ -301,11 +301,11 @@ breaks — here is the next counterexample").
 
 ---
 
-## 7. Architecture
+## 7. System design
 
-[![Architecture diagram of soumalyasaha/breach](https://gitdiagram.com/soumalyasaha/breach/diagram.png)](https://gitdiagram.com/soumalyasaha/breach?utm_source=readme&utm_medium=picture)
+![Breach system design](docs/diagram.png)
 
-_A copy of this diagram is committed at [`docs/diagram.png`](docs/diagram.png) so it still renders if gitdiagram.com is unreachable._
+<sub>Rendered live by [GitDiagram](https://gitdiagram.com/soumalyasaha/breach?utm_source=readme&utm_medium=picture) — click to edit the source. The image is also committed at [`docs/diagram.png`](docs/diagram.png), so this section still renders if gitdiagram.com is unreachable.</sub>
 
 ```
 src/
