@@ -229,6 +229,7 @@ with tab_bb:
                 height=340,
                 width=560,
                 drawing_mode="freedraw",
+                return_image_data=True,
                 key="breach_canvas",
             )
         except Exception as exc:
@@ -241,16 +242,15 @@ with tab_bb:
                 try:
                     from src.vision import transcribe_drawing
 
-                    image = canvas.image_data
-                    buf = None
-                    if image is not None:
-                        from io import BytesIO
-
-                        buf = BytesIO()
-                        image.save(buf, format="PNG")
-                    if buf is not None:
-                        text = transcribe_drawing(buf.getvalue())
+                    png = _canvas_png_bytes(canvas)
+                    if png:
+                        text = transcribe_drawing(png)
                         st.session_state.transcription = text
+                    else:
+                        st.warning(
+                            "The canvas has no drawing yet (or no image data was "
+                            "returned) — sketch something first."
+                        )
                 except Exception as exc:
                     st.error(f"Transcription failed: {exc}")
 
@@ -389,6 +389,42 @@ st.caption(
     "Breach uses the LLM only to translate language into solver-checkable form. "
     "All verification is done by Z3 / SymPy. 'No counterexample found' is not a proof of truth."
 )
+
+
+def _canvas_png_bytes(canvas) -> bytes | None:
+    """PNG bytes of a `st_canvas` result.
+
+    With `return_image_data=True` the component hands back raw PNG bytes
+    (`image_bytes`); older builds return a numpy RGBA array (`image_data`) or
+    a PIL image. Handle all three so the transcription never depends on one
+    version of the component.
+    """
+    if canvas is None:
+        return None
+
+    raw = getattr(canvas, "image_bytes", None)
+    if raw:
+        return bytes(raw)
+
+    data = getattr(canvas, "image_data", None)
+    if data is None:
+        return None
+    if hasattr(data, "save"):  # a PIL image
+        from io import BytesIO
+
+        buf = BytesIO()
+        data.save(buf, format="PNG")
+        return buf.getvalue()
+    try:  # a numpy RGBA array
+        from io import BytesIO
+
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.fromarray(data).save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
 
 
 @st.fragment(run_every=2.0)
