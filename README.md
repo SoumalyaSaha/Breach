@@ -7,6 +7,8 @@ not try to prove it true — it tries to **falsify** it, using real solvers (Z3,
 SymPy) to hunt for a counterexample, and it tells you honestly when it cannot
 resolve something.
 
+**Repository:** canonical `beaskt/Breach` · published mirror `SoumalyaSaha/Breach`
+
 ```
    ┌───────────┐   natural language    ┌────────────┐   structured form   ┌──────────┐
    │   claim   │ ────────────────────► │  the LLM   │ ──────────────────► │  Z3 /    │
