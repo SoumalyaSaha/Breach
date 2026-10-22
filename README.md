@@ -99,6 +99,61 @@ technique, at a demo scale, and it is honest about the difference.*
 
 ---
 
+## 2a. ⚠️ Bring your own API key
+
+**The maintainer does not pay for your usage.** This repository ships with **no
+keys at all** — `.env` is git-ignored and nothing is committed. Every LLM-backed
+feature (translating a claim, answering a challenge, looking up citations,
+transcribing a drawing) calls a provider that **you** pay for.
+
+| provider | env var | cost | text | vision |
+|---|---|---|---|---|
+| **OpenAI** | `OPENAI_API_KEY` | paid | ✅ | ✅ `gpt-4o-mini` / `gpt-4o` |
+| Google AI Studio | `GOOGLE_API_KEY` | free tier | ✅ | ✅ `gemini-2.5-flash` |
+| Groq | `GROQ_API_KEY_1..4` | free tier | ✅ | ⚠️ only on some accounts |
+| Ollama (local) | — | free | ✅ | ⚠️ depends on the model you pull |
+
+Breach walks that list in order and uses the first provider that is
+configured, so **one key is enough**.
+
+### The key must be vision + text capable
+
+The blackboard's *draw a claim → transcribe to LaTeX* feature sends an **image**
+to the model, so it needs a **multimodal** key: a model that accepts images as
+well as text. `gpt-4o-mini` / `gpt-4o` (OpenAI) and `gemini-2.5-flash` (Google)
+both qualify. If your key's model is text-only, Breach says so explicitly
+instead of guessing — you can still type the claim in the chat.
+
+### Setup (60 seconds)
+
+```bash
+git clone https://github.com/SoumalyaSaha/Breach.git && cd Breach
+python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -r requirements.txt && pip install -e .
+cp .env.example .env                                    # then paste YOUR key in
+breach check --example euler
+```
+
+Put your key in `.env`, e.g.
+
+```
+OPENAI_API_KEY=sk-...
+# or
+GOOGLE_API_KEY=...        # free tier
+```
+
+If you configure **no** key at all, Breach still runs: it falls back to a small
+offline translator and the solver-backed parts keep working. The LLM-backed
+features will report that they are unavailable rather than inventing an answer.
+
+### Deploying the web app
+
+On Streamlit Community Cloud there is no `.env` file — add the key in the app's
+**Settings → Secrets** panel instead (`OPENAI_API_KEY = "sk-..."`). Breach reads
+secrets as well as environment variables, so it works either way.
+
+---
+
 ## 4. Install
 
 ### Quick start (already installed on this machine)

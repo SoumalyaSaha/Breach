@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -31,12 +32,46 @@ except Exception:  # pragma: no cover - dotenv is optional at runtime
     pass
 
 
+def _secret(name: str, default: str = "") -> str:
+    """Read a setting from the environment, falling back to Streamlit secrets.
+
+    On Streamlit Community Cloud the API keys are entered in the app's
+    *Settings -> Secrets* panel rather than a .env file, so we look there too.
+    """
+    value = os.getenv(name)
+    if value:
+        return value
+    try:  # only meaningful inside a Streamlit runtime
+        import streamlit as st
+
+        secret = st.secrets.get(name)  # type: ignore[attr-defined]
+        if secret:
+            return str(secret)
+    except Exception:
+        pass
+    return default
+
+
 DEFAULT_GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 DEFAULT_GROQ_VISION_MODEL = os.getenv(
     "GROQ_VISION_MODEL", "meta-llama/llama-3.2-11b-vision-preview"
 )
-DEFAULT_GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-2.5-flash")
+DEFAULT_GOOGLE_MODEL = _secret("GOOGLE_MODEL", "gemini-2.5-flash")
+DEFAULT_OPENAI_MODEL = _secret("OPENAI_MODEL", "gpt-4o-mini")
 DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+
+#: OpenAI chat / vision models to try, in order.
+OPENAI_MODEL_CANDIDATES = [
+    DEFAULT_OPENAI_MODEL,
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-4.1-mini",
+]
+OPENAI_VISION_CANDIDATES = [
+    _secret("OPENAI_VISION_MODEL", "gpt-4o-mini"),
+    "gpt-4o-mini",
+    "gpt-4o",
+]
 
 #: Google chat models to try, in order (availability varies by key/project).
 GOOGLE_MODEL_CANDIDATES = [
@@ -75,26 +110,6 @@ class LLMUnavailable(RuntimeError):
 
 class LLMError(RuntimeError):
     """A provider was reachable but failed."""
-
-
-def _secret(name: str, default: str = "") -> str:
-    """Read a setting from the environment, falling back to Streamlit secrets.
-
-    On Streamlit Community Cloud the API keys are entered in the app's
-    *Settings -> Secrets* panel rather than a .env file, so we look there too.
-    """
-    value = os.getenv(name)
-    if value:
-        return value
-    try:  # only meaningful inside a Streamlit runtime
-        import streamlit as st
-
-        secret = st.secrets.get(name)  # type: ignore[attr-defined]
-        if secret:
-            return str(secret)
-    except Exception:
-        pass
-    return default
 
 
 # ---------------------------------------------------------------------------
@@ -167,23 +182,16 @@ class GroqKeyRotator:
         raise LLMError(f"All Groq keys are rate-limited right now: {last_error}")
 
 
-class GoogleKeyRotator:
-    """Round-robin over several Google AI Studio keys.
+class HttpKeyRotator:
+    """Round-robin over several API keys for a plain HTTP endpoint.
 
-    Same idea as the Groq rotator: if one key is quota-limited or invalid we
-    move to the next instead of failing the whole request.
+    The URL must contain a `{key}` placeholder, which is substituted with the
+    key in use. If a key is rate-limited or rejected we cool it down and move
+    to the next one instead of failing the whole request.
     """
 
-    def __init__(self, keys: Optional[list[str]] = None, timeout: float = DEFAULT_TIMEOUT) -> None:
-        if keys is None:
-            raw = [
-                _secret("GOOGLE_API_KEY"),
-                _secret("GOOGLE_API_KEY_2"),
-                _secret("GOOGLE_API_KEY_3"),
-                _secret("GOOGLE_API_KEY_4"),
-            ]
-            keys = [k for k in raw if k]
-        self.keys: list[str] = list(keys)
+    def __init__(self, keys: list[str], timeout: float = DEFAULT_TIMEOUT) -> None:
+        self.keys: list[str] = [k for k in keys if k]
         self.timeout = timeout
         self.current_idx = 0
         self.cooldown_until: dict[int, float] = {i: 0.0 for i in range(len(self.keys))}
@@ -200,19 +208,37 @@ class GoogleKeyRotator:
             self.current_idx = (self.current_idx + 1) % len(self.keys)
         return None, None
 
-    def call(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
-        """POST to `url` (a `{key}` placeholder is substituted) and return JSON."""
+    def call(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        headers: Optional[dict[str, str]] = None,
+        key_in_url: bool = True,
+    ) -> dict[str, Any]:
+        """POST `payload` to `url`.
+
+        `key_in_url=True`  -> the key replaces the `{key}` placeholder in the
+                              URL (Google AI Studio's style: `?key=...`).
+        `key_in_url=False` -> the key goes into an `Authorization: Bearer`
+                              header (OpenAI's style).
+        """
         import requests
 
+        headers = headers or {}
         last_error: Optional[Exception] = None
         for _ in range(len(self.keys)):
             key, idx = self._next_available_key()
             if key is None:
                 break
+            target = url.replace("{key}", key) if key_in_url else url
+            request_headers = dict(headers)
+            if not key_in_url:
+                request_headers["Authorization"] = f"Bearer {key}"
             try:
                 resp = requests.post(
-                    url.replace("{key}", key),
+                    target,
                     json=payload,
+                    headers=request_headers,
                     timeout=self.timeout,
                 )
             except Exception as exc:  # noqa: BLE001
@@ -223,15 +249,48 @@ class GoogleKeyRotator:
             if resp.status_code in (429, 500, 502, 503):
                 self.cooldown_until[idx] = time.time() + 60
                 self.current_idx = (self.current_idx + 1) % len(self.keys)
-                last_error = LLMError(f"Google error {resp.status_code}: {resp.text[:200]}")
+                last_error = LLMError(f"HTTP {resp.status_code}: {resp.text[:200]}")
                 continue
             if resp.status_code in (400, 401, 403):
                 self.cooldown_until[idx] = time.time() + 300
                 self.current_idx = (self.current_idx + 1) % len(self.keys)
-                last_error = LLMError(f"Google error {resp.status_code}: {resp.text[:200]}")
+                last_error = LLMError(f"HTTP {resp.status_code}: {resp.text[:200]}")
                 continue
-            raise LLMError(f"Google error {resp.status_code}: {resp.text[:200]}")
-        raise LLMError(f"All Google keys are unavailable: {last_error}")
+            raise LLMError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+        raise LLMError(f"All keys are unavailable: {last_error}")
+
+
+class GoogleKeyRotator(HttpKeyRotator):
+    """Round-robin over several Google AI Studio keys."""
+
+    def __init__(self, keys: Optional[list[str]] = None, timeout: float = DEFAULT_TIMEOUT) -> None:
+        if keys is None:
+            keys = [
+                _secret("GOOGLE_API_KEY"),
+                _secret("GOOGLE_API_KEY_2"),
+                _secret("GOOGLE_API_KEY_3"),
+                _secret("GOOGLE_API_KEY_4"),
+            ]
+        super().__init__(list(keys), timeout=timeout)
+
+    def call(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:  # type: ignore[override]
+        # Google AI Studio wants the key as a query parameter, NOT as a
+        # bearer token (it rejects bearer tokens with "API keys are not
+        # supported by this API").
+        return super().call(url, payload, headers={}, key_in_url=True)
+
+
+class OpenAIKeyRotator(HttpKeyRotator):
+    """Round-robin over several OpenAI API keys."""
+
+    def __init__(self, keys: Optional[list[str]] = None, timeout: float = DEFAULT_TIMEOUT) -> None:
+        if keys is None:
+            keys = [
+                _secret("OPENAI_API_KEY"),
+                _secret("OPENAI_API_KEY_2"),
+                _secret("OPENAI_API_KEY_3"),
+            ]
+        super().__init__(list(keys), timeout=timeout)
 
 
 # ---------------------------------------------------------------------------
@@ -252,9 +311,10 @@ class LLMClient:
         self.timeout = timeout
         self.rotator = GroqKeyRotator()
         self.google = GoogleKeyRotator()
-        self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        self.openai = OpenAIKeyRotator()
+        self.ollama_url = _secret("OLLAMA_URL", "http://localhost:11434")
         self.last_provider: str = ""
-        self.offline = os.getenv("BREACH_OFFLINE", "").lower() in ("1", "true", "yes")
+        self.offline = _secret("BREACH_OFFLINE", "").lower() in ("1", "true", "yes")
 
     # -- provider probes -------------------------------------------------
     def _groq_ready(self) -> bool:
@@ -262,6 +322,9 @@ class LLMClient:
 
     def _google_ready(self) -> bool:
         return bool(self.google) and not self.offline
+
+    def _openai_ready(self) -> bool:
+        return bool(self.openai) and not self.offline
 
     def _ollama_ready(self) -> bool:
         if self.offline:
@@ -280,6 +343,8 @@ class LLMClient:
             avail.append("groq")
         if self._google_ready():
             avail.append("google")
+        if self._openai_ready():
+            avail.append("openai")
         if self._ollama_ready():
             avail.append("ollama")
         if not avail:
@@ -338,6 +403,14 @@ class LLMClient:
                 text = self._google_chat(messages, **kwargs)
                 self.last_provider = "google"
                 return LLMReply(text=text, provider="google", model=DEFAULT_GOOGLE_MODEL)
+            except Exception as exc:  # noqa: BLE001
+                last_exc = exc
+
+        if self._openai_ready():
+            try:
+                text = self._openai_chat(messages, **kwargs)
+                self.last_provider = "openai"
+                return LLMReply(text=text, provider="openai", model=DEFAULT_OPENAI_MODEL)
             except Exception as exc:  # noqa: BLE001
                 last_exc = exc
 
@@ -404,6 +477,71 @@ class LLMClient:
             return "".join(p.get("text", "") for p in parts)
         raise LLMError(f"No usable Google model responded: {last_error}")
 
+    def _openai_chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
+        requested = kwargs.pop("model", None)
+        candidates = [requested] if requested else list(OPENAI_MODEL_CANDIDATES)
+        last_error: Optional[Exception] = None
+        for model in candidates:
+            payload: dict[str, Any] = {
+                "model": model,
+                "messages": messages,
+                "temperature": kwargs.get("temperature", 0),
+            }
+            # newer reasoning models reject max_tokens
+            if re.match(r"^(o1|o3|gpt-5)", model):
+                payload["max_completion_tokens"] = kwargs.get("max_tokens", 2048)
+            else:
+                payload["max_tokens"] = kwargs.get("max_tokens", 2048)
+            try:
+                data = self.openai.call(
+                    "https://api.openai.com/v1/chat/completions",
+                    payload,
+                    headers={"Content-Type": "application/json"},
+                    key_in_url=False,
+                )
+            except LLMError as exc:
+                text = str(exc)
+                if "404" in text or "does not exist" in text or "model" in text.lower():
+                    last_error = exc
+                    continue  # try the next candidate model
+                raise
+            choices = data.get("choices") or [{}]
+            content = (choices[0].get("message") or {}).get("content") or ""
+            if content.strip():
+                return content
+        raise LLMError(f"No usable OpenAI model responded: {last_error}")
+
+    def _openai_vision(self, prompt: str, image_bytes: bytes, mime: str) -> str:
+        import base64
+
+        b64 = base64.b64encode(image_bytes).decode("ascii")
+        last_error: Optional[Exception] = None
+        for model in OPENAI_VISION_CANDIDATES:
+            content = [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ]
+            try:
+                data = self.openai.call(
+                    "https://api.openai.com/v1/chat/completions",
+                    {
+                        "model": model,
+                        "messages": [{"role": "user", "content": content}],
+                        "temperature": 0,
+                        "max_tokens": 2048,
+                    },
+                    headers={"Content-Type": "application/json"},
+                    key_in_url=False,
+                )
+            except LLMError as exc:
+                last_error = exc
+                continue
+            choices = data.get("choices") or [{}]
+            text = ((choices[0].get("message") or {}).get("content") or "").strip()
+            if text:
+                return text
+        raise LLMError(f"No usable OpenAI vision model responded: {last_error}")
+
     def _ollama_chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
         import requests
 
@@ -450,7 +588,14 @@ class LLMClient:
                         return text
                 except Exception as exc:  # noqa: BLE001
                     last = exc
+                    vision_errors.append(f"groq/{model}: {exc}")
                     continue
+        vision_errors: list[str] = []
+        if self._openai_ready():
+            try:
+                return self._openai_vision(prompt, image_bytes, mime)
+            except Exception as exc:  # noqa: BLE001
+                vision_errors.append(f"openai: {exc}")
         if self._google_ready():
             payload = {
                 "contents": [
@@ -468,7 +613,6 @@ class LLMClient:
                     }
                 ]
             }
-            last_error: Optional[Exception] = None
             for model in GOOGLE_MODEL_CANDIDATES:
                 url = (
                     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -478,17 +622,19 @@ class LLMClient:
                     data = self.google.call(url, payload)
                 except LLMError as exc:
                     text = str(exc)
+                    vision_errors.append(f"google/{model}: {exc}")
                     if "404" in text or "no longer available" in text:
-                        last_error = exc
                         continue
                     raise
                 parts = data["candidates"][0]["content"]["parts"]
                 return "".join(p.get("text", "") for p in parts)
-            raise LLMError(f"No usable Google vision model responded: {last_error}")
+            raise LLMError(f"No usable Google vision model responded: {';'.join(vision_errors)[:300]}")
+        detail = ("; ".join(vision_errors)[:400]) if vision_errors else "no providers configured"
         raise LLMUnavailable(
-            "No vision-capable model is available on the configured providers. "
-            "Set GOOGLE_API_KEY (gemini vision) or a Groq key with access to a "
-            "Llama vision model, then draw the claim in the chat instead."
+            "No vision-capable model could transcribe the drawing. "
+            "Bring a key whose model supports BOTH text and images "
+            "(e.g. OPENAI_API_KEY with gpt-4o-mini, or GOOGLE_API_KEY with "
+            f"gemini-2.5-flash), or type the claim in the chat instead. Details: {detail}"
         )
 
 
