@@ -35,8 +35,17 @@ DEFAULT_GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 DEFAULT_GROQ_VISION_MODEL = os.getenv(
     "GROQ_VISION_MODEL", "meta-llama/llama-3.2-11b-vision-preview"
 )
-DEFAULT_GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-2.0-flash")
+DEFAULT_GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-2.5-flash")
 DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+
+#: Google chat models to try, in order (availability varies by key/project).
+GOOGLE_MODEL_CANDIDATES = [
+    DEFAULT_GOOGLE_MODEL,
+    "gemini-2.5-flash",
+    "gemini-2.5-pro",
+    "gemini-flash-latest",
+    "gemini-3.8-flash",
+]
 
 #: Chat models to try, in order, when the configured one is not available on
 #: the account (Groq model availability varies per key).
@@ -138,6 +147,73 @@ class GroqKeyRotator:
         raise LLMError(f"All Groq keys are rate-limited right now: {last_error}")
 
 
+class GoogleKeyRotator:
+    """Round-robin over several Google AI Studio keys.
+
+    Same idea as the Groq rotator: if one key is quota-limited or invalid we
+    move to the next instead of failing the whole request.
+    """
+
+    def __init__(self, keys: Optional[list[str]] = None, timeout: float = DEFAULT_TIMEOUT) -> None:
+        if keys is None:
+            raw = [
+                os.getenv("GOOGLE_API_KEY"),
+                os.getenv("GOOGLE_API_KEY_2"),
+                os.getenv("GOOGLE_API_KEY_3"),
+                os.getenv("GOOGLE_API_KEY_4"),
+            ]
+            keys = [k for k in raw if k]
+        self.keys: list[str] = list(keys)
+        self.timeout = timeout
+        self.current_idx = 0
+        self.cooldown_until: dict[int, float] = {i: 0.0 for i in range(len(self.keys))}
+
+    def __bool__(self) -> bool:
+        return bool(self.keys)
+
+    def _next_available_key(self) -> tuple[Optional[str], Optional[int]]:
+        now = time.time()
+        for _ in range(len(self.keys)):
+            idx = self.current_idx
+            if now >= self.cooldown_until.get(idx, 0.0):
+                return self.keys[idx], idx
+            self.current_idx = (self.current_idx + 1) % len(self.keys)
+        return None, None
+
+    def call(self, url: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """POST to `url` (a `{key}` placeholder is substituted) and return JSON."""
+        import requests
+
+        last_error: Optional[Exception] = None
+        for _ in range(len(self.keys)):
+            key, idx = self._next_available_key()
+            if key is None:
+                break
+            try:
+                resp = requests.post(
+                    url.replace("{key}", key),
+                    json=payload,
+                    timeout=self.timeout,
+                )
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                continue
+            if resp.status_code == 200:
+                return resp.json()
+            if resp.status_code in (429, 500, 502, 503):
+                self.cooldown_until[idx] = time.time() + 60
+                self.current_idx = (self.current_idx + 1) % len(self.keys)
+                last_error = LLMError(f"Google error {resp.status_code}: {resp.text[:200]}")
+                continue
+            if resp.status_code in (400, 401, 403):
+                self.cooldown_until[idx] = time.time() + 300
+                self.current_idx = (self.current_idx + 1) % len(self.keys)
+                last_error = LLMError(f"Google error {resp.status_code}: {resp.text[:200]}")
+                continue
+            raise LLMError(f"Google error {resp.status_code}: {resp.text[:200]}")
+        raise LLMError(f"All Google keys are unavailable: {last_error}")
+
+
 # ---------------------------------------------------------------------------
 # Client
 # ---------------------------------------------------------------------------
@@ -155,7 +231,7 @@ class LLMClient:
     def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
         self.timeout = timeout
         self.rotator = GroqKeyRotator()
-        self.google_key = os.getenv("GOOGLE_API_KEY")
+        self.google = GoogleKeyRotator()
         self.ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.last_provider: str = ""
         self.offline = os.getenv("BREACH_OFFLINE", "").lower() in ("1", "true", "yes")
@@ -165,7 +241,7 @@ class LLMClient:
         return bool(self.rotator) and not self.offline
 
     def _google_ready(self) -> bool:
-        return bool(self.google_key) and not self.offline
+        return bool(self.google) and not self.offline
 
     def _ollama_ready(self) -> bool:
         if self.offline:
@@ -279,27 +355,34 @@ class LLMClient:
 
     # -- provider-specific implementations --------------------------------
     def _google_chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
-        import requests
-
-        model = kwargs.pop("model", DEFAULT_GOOGLE_MODEL)
-        payload = {
-            "contents": [
-                {"role": m["role"], "parts": [{"text": m["content"]}]} for m in messages
-            ],
-            "generationConfig": {
-                "temperature": kwargs.get("temperature", 0),
-                "maxOutputTokens": kwargs.get("max_tokens", 2048),
-            },
-        }
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{model}:generateContent?key={self.google_key}"
-        )
-        resp = requests.post(url, json=payload, timeout=self.timeout)
-        resp.raise_for_status()
-        data = resp.json()
-        parts = data["candidates"][0]["content"]["parts"]
-        return "".join(p.get("text", "") for p in parts)
+        requested = kwargs.pop("model", None)
+        candidates = [requested] if requested else list(GOOGLE_MODEL_CANDIDATES)
+        last_error: Optional[Exception] = None
+        for model in candidates:
+            payload = {
+                "contents": [
+                    {"role": m["role"], "parts": [{"text": m["content"]}]} for m in messages
+                ],
+                "generationConfig": {
+                    "temperature": kwargs.get("temperature", 0),
+                    "maxOutputTokens": kwargs.get("max_tokens", 2048),
+                },
+            }
+            url = (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{model}:generateContent?key={{key}}"
+            )
+            try:
+                data = self.google.call(url, payload)
+            except LLMError as exc:
+                text = str(exc)
+                if "404" in text or "no longer available" in text:
+                    last_error = exc
+                    continue  # try the next candidate model
+                raise
+            parts = data["candidates"][0]["content"]["parts"]
+            return "".join(p.get("text", "") for p in parts)
+        raise LLMError(f"No usable Google model responded: {last_error}")
 
     def _ollama_chat(self, messages: list[dict[str, Any]], **kwargs: Any) -> str:
         import requests
@@ -349,8 +432,6 @@ class LLMClient:
                     last = exc
                     continue
         if self._google_ready():
-            import requests
-
             payload = {
                 "contents": [
                     {
@@ -367,14 +448,23 @@ class LLMClient:
                     }
                 ]
             }
-            url = (
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{DEFAULT_GOOGLE_MODEL}:generateContent?key={self.google_key}"
-            )
-            resp = requests.post(url, json=payload, timeout=self.timeout)
-            resp.raise_for_status()
-            parts = resp.json()["candidates"][0]["content"]["parts"]
-            return "".join(p.get("text", "") for p in parts)
+            last_error: Optional[Exception] = None
+            for model in GOOGLE_MODEL_CANDIDATES:
+                url = (
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    f"{model}:generateContent?key={{key}}"
+                )
+                try:
+                    data = self.google.call(url, payload)
+                except LLMError as exc:
+                    text = str(exc)
+                    if "404" in text or "no longer available" in text:
+                        last_error = exc
+                        continue
+                    raise
+                parts = data["candidates"][0]["content"]["parts"]
+                return "".join(p.get("text", "") for p in parts)
+            raise LLMError(f"No usable Google vision model responded: {last_error}")
         raise LLMUnavailable(
             "No vision-capable model is available on the configured providers. "
             "Set GOOGLE_API_KEY (gemini vision) or a Groq key with access to a "
