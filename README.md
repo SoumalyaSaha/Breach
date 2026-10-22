@@ -342,7 +342,24 @@ inside `cli.py` or `web.py`, that is a bug.
 
 ---
 
-## 8. Tests
+## 8. Validation corpus
+
+Breach is validated against an external, citable corpus — not only against
+problems we wrote ourselves.
+
+- [`validation/VALIDATION.md`](validation/VALIDATION.md) — what the corpus
+  contains, what it deliberately does *not* claim, and the exact commands to
+  reproduce it (including the one case that was flaky, how it was root-caused
+  and how it was fixed).
+- [`validation/validation_corpus.json`](validation/validation_corpus.json) — the
+  machine-readable version (5 entries: 4 executable, 1 historical context).
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the translation-validation fix that made
+BVC-002 deterministic.
+
+---
+
+## 9. Tests
 
 ```bash
 python -m pytest -q
@@ -355,7 +372,7 @@ overwrites), state serialisation, symbol shortcuts, and export.
 
 ---
 
-## 9. Demo video (4 minutes)
+## 10. Demo video (4 minutes)
 
 | time | segment | what to show |
 |---|---|---|
@@ -373,7 +390,7 @@ because they resolve in milliseconds.
 
 ---
 
-## 10. Prior art (be ready for the judge question)
+## 11. Prior art (be ready for the judge question)
 
 The core mechanism — *LLM → symbolic translation → SMT/CAS → counterexample* —
 is **not new**. Known relatives: `lean4-skills`' `/disprove` (Lean, certified
