@@ -62,7 +62,7 @@ Each unknown carries a **confidence score** and a plain-language explanation.
 
 ---
 
-## 3. Scope honesty (read this before you quote it)
+## 3. Scope honesty
 
 Breach does **not** solve Millennium Prize problems. Navier–Stokes, Collatz, the
 Riemann hypothesis and friends are open questions about unbounded, infinite-
@@ -96,7 +96,7 @@ For comparison, the 2016 Pythagorean Triples proof covered ~2^7825 cases on
 replication of that result.
 ```
 
-**Never claim Breach "solved an open problem".** Claim: *it runs the real
+**We never claim Breach "solved an open problem".** Claim: *it runs the real
 technique, at a demo scale, and it is honest about the difference.*
 
 ---
