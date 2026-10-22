@@ -1,3 +1,5 @@
+
+![BREACH CLI screenshot](docs/breach-cli.png)
 # Breach
 
 > *"LLMs can hallucinate a proof that looks right. Breach's job is to try to **break** your proof, not confirm it."*
@@ -268,6 +270,8 @@ src/
 tests/
   test_engine.py   solver-level tests (true claim / false claim / unknown + gallery)
 ```
+
+![Breach architecture diagram](docs/diagram.png)
 
 **Design rule:** the CLI and the web app are *thin renderers*. All logic lives
 in `engine.py`, `orchestrator.py`, `cases.py` and `argue.py`. If logic appears
