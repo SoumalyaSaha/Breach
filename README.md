@@ -303,25 +303,32 @@ breaks — here is the next counterexample").
 
 ## 7. Architecture
 
+[![Architecture diagram of soumalyasaha/breach](https://gitdiagram.com/soumalyasaha/breach/diagram.png)](https://gitdiagram.com/soumalyasaha/breach?utm_source=readme&utm_medium=picture)
+
 ```
 src/
   state.py         ProofState / ProofStep / UnknownInfo  (the shared data model)
   memory.py        ProofMemory — lock-guarded, never overwrites
-  llm_client.py    provider chain + Groq key rotation (the only network layer)
+  llm_client.py    provider chain + key rotation (the only network layer)
   engine.py        translation, solver invocation, scored unknowns, tautology guard
   orchestrator.py  worker dispatch (symbolic / constraint / numeric) over shared memory
   cases.py         cube-and-conquer splitting, symmetry detection, search certificate
   argue.py         challenge loop + proof autopsy + patch
+  powers.py        meet-in-the-middle sum-of-powers search
   examples.py      the built-in greatest-hits gallery
   symbols.py       symbol shortcuts (function names are protected)
   vision.py        canvas → LaTeX transcription (always confirmed by the user)
   citations.py     related work — returns an empty list rather than inventing one
   export.py        .md / .html / .txt reports
-  ui_theme.py      shared rich theme (red/orange accent) + banner
+  banner.py        the gradient wordmark renderer
+  ui_theme.py      shared rich theme (red/orange accent)
+  clipboard.py     copy a path to the system clipboard
+  paths.py         project-root anchoring (.env, session file, outputs/)
   cli.py           Typer CLI (thin wrapper)
   web.py           Streamlit UI (thin wrapper)
 tests/
   test_engine.py   solver-level tests (true claim / false claim / unknown + gallery)
+  test_breach.py   autopsy / patch / export / web-rendering guards
 ```
 
 **Design rule:** the CLI and the web app are *thin renderers*. All logic lives
