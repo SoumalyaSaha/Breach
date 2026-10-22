@@ -294,7 +294,7 @@ BVC-002 deterministic.
 
 ---
 
-## 8. Tests
+## 9. Tests
 
 ```bash
 python -m pytest -q
