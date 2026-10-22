@@ -31,6 +31,8 @@ from src.memory import ProofMemory  # noqa: E402
 from src.paths import SESSION_FILE as DEFAULT_SESSION  # noqa: E402
 from src.state import ProofState  # noqa: E402
 from src.symbols import apply_shortcut, find_completion  # noqa: E402
+from src.vision import transcribe_canvas  # noqa: E402  (module-level import: the
+# button handler below can never call it before it exists)
 
 # ---------------------------------------------------------------------------
 # Session file (shared with the CLI)
@@ -240,11 +242,8 @@ with tab_bb:
         if canvas is not None and st.button("🎨 Transcribe drawing", type="primary"):
             with st.spinner("Transcribing (low-confidence parts are marked UNCLEAR)..."):
                 try:
-                    from src.vision import transcribe_drawing
-
-                    png = _canvas_png_bytes(canvas)
-                    if png:
-                        text = transcribe_drawing(png)
+                    text = transcribe_canvas(canvas)
+                    if text:
                         st.session_state.transcription = text
                     else:
                         st.warning(
@@ -389,42 +388,6 @@ st.caption(
     "Breach uses the LLM only to translate language into solver-checkable form. "
     "All verification is done by Z3 / SymPy. 'No counterexample found' is not a proof of truth."
 )
-
-
-def _canvas_png_bytes(canvas) -> bytes | None:
-    """PNG bytes of a `st_canvas` result.
-
-    With `return_image_data=True` the component hands back raw PNG bytes
-    (`image_bytes`); older builds return a numpy RGBA array (`image_data`) or
-    a PIL image. Handle all three so the transcription never depends on one
-    version of the component.
-    """
-    if canvas is None:
-        return None
-
-    raw = getattr(canvas, "image_bytes", None)
-    if raw:
-        return bytes(raw)
-
-    data = getattr(canvas, "image_data", None)
-    if data is None:
-        return None
-    if hasattr(data, "save"):  # a PIL image
-        from io import BytesIO
-
-        buf = BytesIO()
-        data.save(buf, format="PNG")
-        return buf.getvalue()
-    try:  # a numpy RGBA array
-        from io import BytesIO
-
-        from PIL import Image
-
-        buf = BytesIO()
-        Image.fromarray(data).save(buf, format="PNG")
-        return buf.getvalue()
-    except Exception:
-        return None
 
 
 @st.fragment(run_every=2.0)

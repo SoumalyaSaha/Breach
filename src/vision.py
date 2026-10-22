@@ -51,3 +51,50 @@ def transcribe_file(path: str, client: Optional[LLMClient] = None) -> str:
         data = fh.read()
     mime = "image/png" if path.lower().endswith(".png") else "image/jpeg"
     return transcribe_drawing(data, client=client, mime=mime)
+
+
+def canvas_png_bytes(canvas) -> Optional[bytes]:
+    """PNG bytes of a `st_canvas` result.
+
+    With `return_image_data=True` the component hands back raw PNG bytes
+    (`image_bytes`); older builds return a numpy RGBA array (`image_data`) or
+    a PIL image. Handle all three so the transcription never depends on one
+    version of the component.
+
+    Lives here (not in the Streamlit script) so it is importable and testable,
+    and so the UI can never call it before it exists.
+    """
+    if canvas is None:
+        return None
+
+    raw = getattr(canvas, "image_bytes", None)
+    if raw:
+        return bytes(raw)
+
+    data = getattr(canvas, "image_data", None)
+    if data is None:
+        return None
+    if hasattr(data, "save"):  # a PIL image
+        from io import BytesIO
+
+        buf = BytesIO()
+        data.save(buf, format="PNG")
+        return buf.getvalue()
+    try:  # a numpy RGBA array
+        from io import BytesIO
+
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.fromarray(data).save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
+def transcribe_canvas(canvas, client: Optional[LLMClient] = None) -> Optional[str]:
+    """Transcribe a canvas drawing into LaTeX (None if nothing is drawn)."""
+    png = canvas_png_bytes(canvas)
+    if not png:
+        return None
+    return transcribe_drawing(png, client=client)

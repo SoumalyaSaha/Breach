@@ -285,3 +285,96 @@ def test_get_or_compute_runs_once():
     assert len(calls) == 1
     assert first == second
     assert hit1 is False and hit2 is True
+
+
+# ---------------------------------------------------------------------------
+# Canvas / vision plumbing (the web UI's blackboard)
+# ---------------------------------------------------------------------------
+def test_canvas_png_bytes_handles_every_payload_shape():
+    """`st_canvas` can hand back bytes, a PIL image or a numpy array."""
+    import numpy as np
+    from PIL import Image
+
+    from src.vision import canvas_png_bytes
+
+    class Result:
+        def __init__(self, **kw):
+            self.__dict__.update(kw)
+
+    assert canvas_png_bytes(None) is None
+    assert canvas_png_bytes(Result()) is None
+
+    raw = canvas_png_bytes(Result(image_bytes=b"\x89PNG"))
+    assert raw == b"\x89PNG"
+
+    pil = Image.new("RGB", (8, 8), "white")
+    assert canvas_png_bytes(Result(image_data=pil))[:4] == b"\x89PNG"
+
+    arr = np.zeros((8, 8, 4), dtype=np.uint8)
+    assert canvas_png_bytes(Result(image_data=arr))[:4] == b"\x89PNG"
+
+
+def test_transcribe_canvas_returns_none_without_a_drawing():
+    from src.vision import transcribe_canvas
+
+    class Result:
+        image_bytes = None
+        image_data = None
+
+    assert transcribe_canvas(Result()) is None
+    assert transcribe_canvas(None) is None
+
+
+def test_web_script_has_no_undefined_module_level_names():
+    """Every name used by the script must be bound at module level.
+
+    Streamlit re-runs the whole script on every click, so a helper that is
+    defined *after* the button handler (or not defined at all) blows up with
+    `NameError` the moment a user clicks. This shipped once as
+    `NameError: name '_canvas_png_bytes' is not defined`.
+    """
+    import ast
+    import builtins
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parent.parent / "src" / "web.py"
+    tree = ast.parse(src.read_text(encoding="utf-8"))
+
+    loads: set[str] = set()
+    bindings: set[str] = set(dir(builtins)) | {"__file__", "__name__", "__doc__"}
+
+    def walk(node) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                bindings.add(child.name)
+                continue  # function bodies have their own scope
+            if isinstance(child, ast.Import):
+                for alias in child.names:
+                    bindings.add((alias.asname or alias.name).split(".")[0])
+                continue
+            if isinstance(child, ast.ImportFrom):
+                for alias in child.names:
+                    bindings.add(alias.asname or alias.name)
+                continue
+            if isinstance(child, ast.ExceptHandler) and child.name:
+                bindings.add(child.name)  # `except X as exc:`
+                continue
+            if isinstance(child, ast.Name):
+                if isinstance(child.ctx, ast.Store):
+                    bindings.add(child.id)
+                else:
+                    loads.add(child.id)
+            walk(child)
+
+    walk(tree)
+
+    undefined = sorted(loads - bindings)
+    assert not undefined, (
+        "web.py uses names that are never bound at module level: "
+        f"{undefined} — they will raise NameError when a button is clicked."
+    )
+
+    # and the canvas helpers must come from the importable module, not the script
+    text = src.read_text(encoding="utf-8")
+    assert "from src.vision import transcribe_canvas" in text
+    assert "def _canvas_png_bytes" not in text
