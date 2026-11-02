@@ -17,6 +17,24 @@ mechanically decidable claims checkable by Z3/SymPy.
 | BVC-003 | `mathd_algebra_487` | algebraic system | `no_counterexample_in_bound` | ✅ Pass (5/5 runs, 100% accuracy) |
 | BVC-004 | Pólya conjecture (1919) | historical context only | n/a | Not executed — citation only |
 | BVC-005 | control inequality | counterexample control | `counterexample_found` | ✅ Pass (5/5 runs, 100% accuracy) |
+| BVC-006 | `mathd_algebra_141` | algebraic identity | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-007 | `mathd_algebra_160` | linear system | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-008 | `mathd_algebra_412` | linear system | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-009 | `mathd_algebra_44` | linear system | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-010 | `mathd_algebra_126` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-011 | `mathd_algebra_398` | algebraic identity | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-012 | `mathd_algebra_107` | algebraic identity | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-013 | `mathd_algebra_455` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-014 | `mathd_algebra_440` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-015 | `control_false_prime` | number theory (prime) | `counterexample_found` | Pass (3/3 runs, 100% accuracy) |
+| BVC-016 | `control_false_divisibility` | number theory (divisibility) | `counterexample_found` | Pass (3/3 runs, 100% accuracy) |
+| BVC-017 | `control_false_inequality2` | inequality | `counterexample_found` | Pass (3/3 runs, 100% accuracy) |
+| BVC-018 | `algebra_sqineq_unitcircatbpamblt1` | inequality | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-019 | `algebra_sqineq_36azm9asqle36zsq` | inequality | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-020 | `mathd_algebra_388` | linear system | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-021 | `mathd_algebra_176` | algebraic identity | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-022 | `mathd_algebra_327` | inequality | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-023 | `mathd_algebra_24` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
 
 **Measured accuracy: 20/20 correct = 100%** over 5 runs of each executable case (see [Accuracy](#accuracy) below for the per-case breakdown and the caveats).
 
@@ -72,6 +90,24 @@ Mean wall-clock per check ≈ 13.2s (slowest 44.4s).
 | BVC-002 | `mathd_numbertheory_618` | `no_counterexample_in_bound` | 5/5 | 100% | `no_counterexample_in_bound` × 5 |
 | BVC-003 | `mathd_algebra_487` | `no_counterexample_in_bound` | 5/5 | 100% | `no_counterexample_in_bound` × 5 |
 | BVC-005 | `control_false_inequality` | `counterexample_found` | 5/5 | 100% | `counterexample_found` × 5 |
+| BVC-006 | `mathd_algebra_141` | algebraic identity | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-007 | `mathd_algebra_160` | linear system | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-008 | `mathd_algebra_412` | linear system | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-009 | `mathd_algebra_44` | linear system | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-010 | `mathd_algebra_126` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-011 | `mathd_algebra_398` | algebraic identity | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-012 | `mathd_algebra_107` | algebraic identity | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-013 | `mathd_algebra_455` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-014 | `mathd_algebra_440` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-015 | `control_false_prime` | number theory (prime) | `counterexample_found` | Pass (3/3 runs, 100% accuracy) |
+| BVC-016 | `control_false_divisibility` | number theory (divisibility) | `counterexample_found` | Pass (3/3 runs, 100% accuracy) |
+| BVC-017 | `control_false_inequality2` | inequality | `counterexample_found` | Pass (3/3 runs, 100% accuracy) |
+| BVC-018 | `algebra_sqineq_unitcircatbpamblt1` | inequality | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-019 | `algebra_sqineq_36azm9asqle36zsq` | inequality | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-020 | `mathd_algebra_388` | linear system | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-021 | `mathd_algebra_176` | algebraic identity | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-022 | `mathd_algebra_327` | inequality | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
+| BVC-023 | `mathd_algebra_24` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
 
 Reading these numbers honestly:
 
