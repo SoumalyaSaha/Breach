@@ -1,5 +1,10 @@
 {
-  "runs_per_case": 5,
+  "runs_per_case": {
+    "original": 5,
+    "expanded": 3
+  },
+  "total_runs": 74,
+  "total_correct": 74,
   "overall": 1.0,
   "cases": [
     {
@@ -70,6 +75,276 @@
       "runs": 5,
       "mean_seconds": 12.37,
       "max_seconds": 18.08
+    },
+    {
+      "id": "BVC-006",
+      "name": "mathd_algebra_141",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 2.43,
+      "max_seconds": 2.9
+    },
+    {
+      "id": "BVC-007",
+      "name": "mathd_algebra_160",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 7.5,
+      "max_seconds": 13.1
+    },
+    {
+      "id": "BVC-008",
+      "name": "mathd_algebra_412",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 7.9,
+      "max_seconds": 13.1
+    },
+    {
+      "id": "BVC-009",
+      "name": "mathd_algebra_44",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 8.67,
+      "max_seconds": 11.0
+    },
+    {
+      "id": "BVC-010",
+      "name": "mathd_algebra_126",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 8.03,
+      "max_seconds": 13.2
+    },
+    {
+      "id": "BVC-011",
+      "name": "mathd_algebra_398",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 8.7,
+      "max_seconds": 10.7
+    },
+    {
+      "id": "BVC-012",
+      "name": "mathd_algebra_107",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 7.97,
+      "max_seconds": 9.8
+    },
+    {
+      "id": "BVC-013",
+      "name": "mathd_algebra_455",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 6.57,
+      "max_seconds": 7.7
+    },
+    {
+      "id": "BVC-014",
+      "name": "mathd_algebra_440",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 6.37,
+      "max_seconds": 8.2
+    },
+    {
+      "id": "BVC-015",
+      "name": "control_false_prime",
+      "runnable": true,
+      "expected": "counterexample_found",
+      "verdicts": {
+        "counterexample_found": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 13.87,
+      "max_seconds": 20.4
+    },
+    {
+      "id": "BVC-016",
+      "name": "control_false_divisibility",
+      "runnable": true,
+      "expected": "counterexample_found",
+      "verdicts": {
+        "counterexample_found": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 6.97,
+      "max_seconds": 9.2
+    },
+    {
+      "id": "BVC-017",
+      "name": "control_false_inequality2",
+      "runnable": true,
+      "expected": "counterexample_found",
+      "verdicts": {
+        "counterexample_found": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 4.83,
+      "max_seconds": 7.5
+    },
+    {
+      "id": "BVC-018",
+      "name": "algebra_sqineq_unitcircatbpamblt1",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 7.57,
+      "max_seconds": 10.8
+    },
+    {
+      "id": "BVC-019",
+      "name": "algebra_sqineq_36azm9asqle36zsq",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 5.77,
+      "max_seconds": 9.6
+    },
+    {
+      "id": "BVC-020",
+      "name": "mathd_algebra_388",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 9.07,
+      "max_seconds": 13.4
+    },
+    {
+      "id": "BVC-021",
+      "name": "mathd_algebra_176",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 5.57,
+      "max_seconds": 6.8
+    },
+    {
+      "id": "BVC-022",
+      "name": "mathd_algebra_327",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 6.87,
+      "max_seconds": 7.6
+    },
+    {
+      "id": "BVC-023",
+      "name": "mathd_algebra_24",
+      "runnable": true,
+      "expected": "no_counterexample_in_bound",
+      "verdicts": {
+        "no_counterexample_in_bound": 3
+      },
+      "unknown_kinds": {},
+      "accuracy": 1.0,
+      "correct": 3,
+      "runs": 3,
+      "mean_seconds": 8.37,
+      "max_seconds": 13.3
     }
   ]
 }

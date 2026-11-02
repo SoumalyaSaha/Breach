@@ -6,7 +6,7 @@ All notable changes to Breach.
 
 ### Added
 - **`validation/VALIDATION.md` + `validation/validation_corpus.json`** — a small
-  curated corpus (5 entries, 4 executable) for validating Breach against
+  curated corpus (23 entries, 22 executable) for validating Breach against
   externally-sourced mathematical statements (miniF2F) rather than only
   self-authored problems. BVC-004 (the Pólya conjecture) is included as
   historical context only and is never run or claimed as a Breach result.

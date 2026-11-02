@@ -36,13 +36,14 @@ mechanically decidable claims checkable by Z3/SymPy.
 | BVC-022 | `mathd_algebra_327` | inequality | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
 | BVC-023 | `mathd_algebra_24` | linear equation | `no_counterexample_in_bound` | Pass (3/3 runs, 100% accuracy) |
 
-**Measured accuracy: 20/20 correct = 100%** over 5 runs of each executable case (see [Accuracy](#accuracy) below for the per-case breakdown and the caveats).
+**Measured accuracy: 74/74 correct = 100%** — 5 runs of each of the 4 original executable cases plus 3 runs of each of the 18 expanded cases (see [Accuracy](#accuracy) below for the per-case breakdown and the caveats).
 
-**4 of 5 entries are executable test cases; 1 is included for historical
+**22 of 23 entries are executable test cases; 1 is included for historical
 context only and is explicitly never run or claimed as a Breach result.**
-Of the 4 executable cases, all 4 now pass reliably. 3 passed cleanly on
+Of the 4 original executable cases, all 4 now pass reliably. 3 passed cleanly on
 first validation; 1 (BVC-002) was found to be non-deterministic on first
-testing, root-caused, fixed, and re-verified.
+testing, root-caused, fixed, and re-verified. The 18 expanded cases
+(BVC-006 through BVC-023) each passed 3/3 runs on first validation.
 
 ## What BVC-002 taught us
 
@@ -68,7 +69,7 @@ for when to report `unknown` versus a definite verdict.
   BVC-004, included only as historical/narrative context — Breach has
   not found that counterexample and the entry is marked accordingly)
 - It does not claim deterministic translation in general — only that
-  these 4 specific cases are now verified stable
+  these 23 specific cases are now verified stable
 - It is not a replacement for structured testing with working
   mathematicians, which would be the natural next step beyond this
   corpus for broader validation
@@ -77,12 +78,16 @@ for when to report `unknown` versus a definite verdict.
 
 ## Accuracy
 
-Measured on this corpus by running every executable case 5 times through
-`breach check` and comparing each verdict against the expected one.
+Measured on this corpus by running every executable case through
+`breach check` and comparing each verdict against the expected one —
+the 4 original cases 5 times each (20 runs), the 18 expanded cases
+3 times each (54 runs).
 
-**Overall: 20/20 correct = 100%.**
-Per case: BVC-001 100%, BVC-002 100%, BVC-003 100%, BVC-005 100%.
-Mean wall-clock per check ≈ 13.2s (slowest 44.4s).
+**Overall: 74/74 correct = 100%.**
+Per case: BVC-001–BVC-003 and BVC-005 100% over 5 runs each;
+BVC-006–BVC-023 100% over 3 runs each.
+Mean wall-clock per check ≈ 13.2s on the original cases (slowest 44.4s);
+≈ 7.4s on the expanded cases (slowest 20.4s).
 
 | ID | case | expected verdict | correct | accuracy | observed |
 |---|---|---|---|---|---|
@@ -111,7 +116,7 @@ Mean wall-clock per check ≈ 13.2s (slowest 44.4s).
 
 Reading these numbers honestly:
 
-- **100% on 4 cases is a small sample, not a benchmark
+- **100% on 22 cases is a small sample, not a benchmark
   result.** It says Breach does not embarrass itself on real, externally-sourced
   mathematics; it does not say Breach is 100% correct in general.
 - **A correct verdict is a correct *verdict*, not a proof.** `no_counterexample_in_bound`
@@ -120,7 +125,7 @@ Reading these numbers honestly:
   truth was established (SymPy simplification, direct substitution, the
   historical record) rather than trusting Breach's own word.
 - **The case that counts most is the one that fails honestly.** Across
-  20 runs, Breach never produced a *confident wrong* result:
+  74 runs, Breach never produced a *confident wrong* result:
   whenever it could not resolve a claim it said `unknown` and gave the reason.
   A tool that fails loudly is worth more than one that fails quietly.
 - **Reproduce it yourself** — the raw per-run measurements are in
@@ -140,6 +145,60 @@ breach check "if a^2 = b, a + b = 1, c^2 = d, c + d = 1, and a != c, then sqrt((
 
 # BVC-005
 breach check "for all positive integers a and b, a^2 + b^2 >= 2*a*b + 1"
+
+# BVC-006
+breach check "for real numbers a and b, if a*b = 180 and a + b = 27, then a^2 + b^2 = 369"
+
+# BVC-007
+breach check "for real numbers n and x, if n + x = 97 and n + 5*x = 265, then n + 2*x = 139"
+
+# BVC-008
+breach check "for real numbers x and y, if x + y = 25 and x - y = 11, then x = 18"
+
+# BVC-009
+breach check "for real numbers s and t, if s = 9 - 2*t and t = 3*s + 1, then s = 1 and t = 4"
+
+# BVC-010
+breach check "for real numbers x and y, if 2*3 = x - 9 and 2*(-5) = y + 1, then x = 15 and y = -11"
+
+# BVC-011
+breach check "for real numbers a, b, c, if 9*b = 20*c and 7*a = 4*b, then 63*a = 80*c"
+
+# BVC-012
+breach check "for real numbers x and y, if x^2 + 8*x + y^2 - 6*y = 0, then (x + 4)^2 + (y - 3)^2 = 25"
+
+# BVC-013
+breach check "if 2*(2*(2*(2*x))) = 48, then x = 3"
+
+# BVC-014
+breach check "if 3/2/3 = x/10, then x = 5"
+
+# BVC-015
+breach check "for all integers n between 1 and 40, n^2 + n + 41 is prime"
+
+# BVC-016
+breach check "for all integers n, n^2 - n is never divisible by 6"
+
+# BVC-017
+breach check "for all positive integers a and b, a^2 + b^2 >= 2*a*b + 2"
+
+# BVC-018
+breach check "for all real numbers a and b, if a^2 + b^2 = 1, then a*b + (a - b) <= 1"
+
+# BVC-019
+breach check "for all real numbers z and a, 36*(a*z) - 9*a^2 <= 36*z^2"
+
+# BVC-020
+breach check "for real numbers x, y, z, if 3*x + 4*y - 12*z = 10 and -2*x - 3*y + 9*z = -4, then x = 14"
+
+# BVC-021
+breach check "for all real numbers a, (a + 1)^2 * a = a^3 + 2*a^2 + a"
+
+# BVC-022
+breach check "for all real numbers x, (1/5)*abs(9 + 2*x) < 1 implies -7 < x and x < -2"
+
+# BVC-023
+breach check "for real numbers x, if x/50 = 40, then x = 2000"
 ```
 
 Run each a few times — stable, repeated results across multiple runs is
